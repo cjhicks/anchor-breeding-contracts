@@ -1,6 +1,15 @@
 # anchor-breeding-contracts
 Repo for our custom breeding contracts using https://github.com/project-serum/anchor
 
+## Quickstart
+```bash
+cd breeding_cooldown
+
+anchor build
+
+anchor test
+```
+
 ## Hello World Rust example
 
 ### Create project:
