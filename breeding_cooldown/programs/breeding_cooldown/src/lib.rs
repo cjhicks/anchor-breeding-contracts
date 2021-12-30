@@ -50,6 +50,10 @@ pub mod breeding_cooldown {
             ]
         )?;
 
+        // TODO: mark apes as "used" (need another state account for this?)
+
+        // TODO: mint new NFT for potion
+
         // TODO: should price be here? should we charge to create the potion too?
         potion.fast_react_price = 5;
         potion.cooldown_days = 7; // days, could be parameterized
