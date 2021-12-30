@@ -31,7 +31,8 @@ pub mod breeding_cooldown {
 
         potion.authority = authority;
 
-        let burn_price = 5; // TODO: inflation?
+        // TODO: check that user has enough $BAPE to get a potion
+        let burn_price = 350; // TODO: inflation?
 
         let burn_bape = spl_token::instruction::burn(
             bape_token_program.key,
@@ -84,6 +85,9 @@ pub mod breeding_cooldown {
         let potion = &mut ctx.accounts.potion;
 
         // TODO: do fast reaction (burn more $BAPE?)
+        // TODO: check that user has enough $BAPE to get a fast reaction
+        let fast_burn_price = 175; // TODO: inflation?
+
         // TODO: mint new NFT
 
         Ok(())
