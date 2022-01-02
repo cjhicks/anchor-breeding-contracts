@@ -24,29 +24,28 @@ pub mod breeding_cooldown {
     */
     pub fn create_potion(ctx: Context<CreatePotion>, authority: Pubkey) -> ProgramResult {
         let potion = &mut ctx.accounts.potion;
+        let program_id = &ctx.program_id;
         let token_program = &ctx.accounts.token_program;
         let user = &ctx.accounts.user;
         let token_user_account = ctx.accounts.token_user_account.to_account_info();
         let token_mint = ctx.accounts.token_mint.to_account_info();
-        let potion_mint = ctx.accounts.potion_mint.to_account_info();
+        // let potion_mint = ctx.accounts.potion_mint.to_account_info();
         let rent = &ctx.accounts.rent;
         let system_program = &ctx.accounts.system_program.to_account_info();
         
         /*
         Validation
         */
-        // TODO: check that user has enough $BAPE to get a potion
-
         // check if 7 days since last breeding
         let timestamp = get_timestamp();
         let breed_min_timestamp = get_breed_min_timestamp(timestamp);
 
         let nft_1_metadata = &mut ctx.accounts.nft_1_metadata;
-        if nft_1_metadata.last_bred_timestamp < breed_min_timestamp {
+        if nft_1_metadata.last_bred_timestamp > breed_min_timestamp {
             return Err(ErrorCode::NftUsedTooSoon.into());
         }
         let nft_2_metadata = &mut ctx.accounts.nft_2_metadata;
-        if nft_2_metadata.last_bred_timestamp < breed_min_timestamp {
+        if nft_2_metadata.last_bred_timestamp > breed_min_timestamp {
             return Err(ErrorCode::NftUsedTooSoon.into());
         }
 
@@ -57,12 +56,7 @@ pub mod breeding_cooldown {
         // TODO: I think anchor does this automatically with account(init, ...)
         // anchor.web3.SystemProgram.createAccount({fromPubkey: walletKey, newAccountPubkey: potionMint, space: MintLayout.span, lamports: rent, programId: TOKEN_PROGRAM_ID,}),
 
-        // TODO: do I need all this below? Can I just use constraints in anchor? Test in devnet
         // Token.createInitMintInstruction(TOKEN_PROGRAM_ID, potion_mint, 0, walletKey, walletKey)
-
-
-
-
         // let init_mint_ctx = CpiContext::new(
         //     token_program.clone(),
         //     anchor_spl::token::InitializeMint {
@@ -73,7 +67,7 @@ pub mod breeding_cooldown {
         // anchor_spl::token::initialize_mint(init_mint_ctx, 0, &user.key(), Some(&user.key()))
         //     .expect("Init Mint failed.");
 
-        // //   createAssociatedTokenAccountInstruction(potionToken, walletKey, walletKey, potionMint),
+        // createAssociatedTokenAccountInstruction(potionToken, walletKey, walletKey, potionMint),
         // let create_associated_token_ctx = CpiContext::new(
         //     token_program.clone(),
         //     anchor_spl::associated_token::Create {
@@ -89,7 +83,7 @@ pub mod breeding_cooldown {
         // anchor_spl::associated_token::create(create_associated_token_ctx)
         //     .expect("Create Associated Token failed.");
 
-        // //   Token.createMintToInstruction(TOKEN_PROGRAM_ID, potionMint, potionToken, walletKey, [], 1),
+        //   Token.createMintToInstruction(TOKEN_PROGRAM_ID, potionMint, potionToken, walletKey, [], 1),
         // let mint_to_ctx = CpiContext::new(
         //     token_program.clone(),
         //     anchor_spl::token::MintTo {
@@ -104,29 +98,25 @@ pub mod breeding_cooldown {
         potion.authority = authority;
         potion.created_timestamp = timestamp;
 
-        // TODO: Create Potion
-        // client: use PublicKey.findProgramAddress to create empty new address (state) for each NFT input
-        // server: verify bape1BreedingState, etc is not already initialized, or at least not within 7 days
-        // - if not, create!
-        // - set egg cooldown to 7 days
-
+        nft_1_metadata.authority = authority;
         nft_1_metadata.last_bred_timestamp = timestamp;
+        nft_2_metadata.authority = authority;
         nft_2_metadata.last_bred_timestamp = timestamp;
 
         /*
         Burn $BAPE after minting potion
         */
-        let burn_price = 350;
-        let burn_ctx = CpiContext::new(
-            token_program.clone(),
-            anchor_spl::token::Burn {
-                to: token_user_account,
-                mint: token_mint,
-                authority: user.to_account_info(),
-            }
-        );
-        anchor_spl::token::burn(burn_ctx, burn_price)
-            .expect("burn failed.");
+        // let burn_price = 350;
+        // let burn_ctx = CpiContext::new(
+        //     token_program.clone(),
+        //     anchor_spl::token::Burn {
+        //         to: token_user_account,
+        //         mint: token_mint,
+        //         authority: user.to_account_info(),
+        //     }
+        // );
+        // anchor_spl::token::burn(burn_ctx, burn_price)
+        //     .expect("burn failed.");
 
         Ok(())
     }
@@ -140,6 +130,12 @@ pub mod breeding_cooldown {
         if potion.created_timestamp < breed_min_timestamp {
             return Err(ErrorCode::CooldownNotReached.into());
         }
+
+        /*
+        Validations (function)
+        1. User is Authority on Egg
+        2. Verify Mint on egg is legit
+        */
 
         // TODO: mint new NFT (master edition)
         // TODO: make this a reusable function
@@ -163,6 +159,12 @@ pub mod breeding_cooldown {
     pub fn fast_react(ctx: Context<FastReact>) -> ProgramResult {
         let potion = &mut ctx.accounts.potion;
 
+        /*
+        Validations (function)
+        1. User is Authority on Egg
+        2. 
+        */
+
         // TODO: do fast reaction (burn more $BAPE?)
         // TODO: check that user has enough $BAPE to get a fast reaction
         let fast_burn_price = 175; // TODO: inflation?
@@ -176,6 +178,9 @@ pub mod breeding_cooldown {
 #[account]
 pub struct Potion {
     pub authority: Pubkey,
+    // TODO: do they need to hold NFT to hatch?
+    // pub nft1: Pubkey,
+    // pub nft2: Pubkey,
     pub created_timestamp: u64
 }
 
@@ -189,18 +194,21 @@ pub struct NftMetadata {
 pub struct CreatePotion<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    #[account(init, payer = user, space = 8 + 20)]
+    #[account(init, payer = user, space = 8 + 40)]
     pub potion: Account<'info, Potion>,
-    #[account(mut)]
-    pub token_user_account: AccountInfo<'info>,  // User's $BAPE account, this token type should match mint account
-    #[account(mut)]
-    pub token_mint: AccountInfo<'info>,  // $BAPE mint, generic enough for any token though
-    pub potion_mint: AccountInfo<'info>, // mint for potions
+    // TODO: owner = user, or token mint?
+    // #[account(mut)]
+    pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
+    // #[account(mut)]
+    pub token_mint: Account<'info, anchor_spl::token::TokenAccount>,  // $BAPE mint, generic enough for any token though
+    // #[account(mut, owner = user)]
+    // pub potion_mint: AccountInfo<'info>, // mint for potions
+    // TODO: owner is user
     pub nft_1: AccountInfo<'info>,
-    #[account(init_if_needed, payer = user, space = 8 + 8)]  // TODO: verify seeds, or create here
+    #[account(init_if_needed, seeds = [b"bapeBreeding".as_ref(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_1_metadata: Account<'info, NftMetadata>,
     pub nft_2: AccountInfo<'info>,
-    #[account(init_if_needed, payer = user, space = 8 + 8)]  // TODO: verify seeds, or create here
+    #[account(init_if_needed, seeds = [b"bapeBreeding".as_ref(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]    // pub nft_2_metadata: Account<'info, NftMetadata>,
     pub nft_2_metadata: Account<'info, NftMetadata>,
 
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints

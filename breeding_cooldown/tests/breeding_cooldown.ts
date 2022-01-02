@@ -1,7 +1,12 @@
 import * as anchor from '@project-serum/anchor';
 import { Program } from '@project-serum/anchor';
 import { BreedingCooldown } from '../target/types/breeding_cooldown';
-const { SystemProgram } = anchor.web3;
+import { 
+  MintLayout,
+  TOKEN_PROGRAM_ID
+} from '@solana/spl-token';
+
+const { SystemProgram, SYSVAR_RENT_PUBKEY } = anchor.web3;
 const assert = require("assert");
 
 describe('breeding_cooldown', () => {
@@ -9,53 +14,109 @@ describe('breeding_cooldown', () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());
 
+  const connection = anchor.getProvider().connection;
   const program = (<any>anchor).workspace.BreedingCooldown as Program<BreedingCooldown>;
   const PREFIX = 'bapeBreeding';
 
-  const user = anchor.getProvider().wallet;
-  const potion = anchor.web3.Keypair.generate();
+  const userPubKey = anchor.getProvider().wallet.publicKey;
+  const potionMintPubKey = anchor.web3.Keypair.generate().publicKey; // new anchor.web3.PublicKey("29oqZtZxzytxuSPHVB3GaFRXR9GtEZbsdp7rFd4JsTrM"); // 
 
-  const tokenUserAccount = anchor.web3.Keypair.generate();
-  const tokenMint = anchor.web3.Keypair.generate();
-  const potionMint = anchor.web3.Keypair.generate();
+  // TODO: create these on the fly
+  const tokenUserAccountPubKey = new anchor.web3.PublicKey("6V4KfqAdedKWmGBbxU8DUqoP42fKqzxnSbQ6rxiuAiV"); // anchor.web3.Keypair.generate().publicKey;
+  const tokenMintPubKey = new anchor.web3.PublicKey("EERuT3sK9ce5QZrQ9TsrVZXpe65JqhXh4xuAjpXPbLXD"); // anchor.web3.Keypair.generate().publicKey;
 
   const nft1 = anchor.web3.Keypair.generate();
-  const nft1Metadata = anchor.web3.PublicKey.findProgramAddress(
-    [Buffer.from(anchor.utils.bytes.utf8.encode(PREFIX)), nft1.publicKey.toBuffer()],
-    program.programId
-  );
-
   const nft2 = anchor.web3.Keypair.generate();
-  const nft2Metadata = anchor.web3.PublicKey.findProgramAddress(
-    [Buffer.from(anchor.utils.bytes.utf8.encode(PREFIX)), nft1.publicKey.toBuffer()],
-    program.programId
-  );
 
-  // it('Creates potion with price and cooldown', async () => {
-  //   await program.rpc.createPotion(wallet.publicKey, {
-  //     accounts: {
-  //       user: user.publicKey,
-  //       potion: potion.publicKey,
-  //       userTokenAccount: tokenUserAccount.publicKey,
-  //       tokenMint: tokenMint.publicKey,
-  //       potionMint: potionMint.publicKey,
-  //       systemProgram: SystemProgram.programId
-  //     },
-  //     signers: [potion]
-  //   })
+  async function getNftMetadataPubKey(nft: anchor.web3.Keypair): Promise<anchor.web3.PublicKey> {
+    return anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from(anchor.utils.bytes.utf8.encode(PREFIX)), nft.publicKey.toBuffer()],
+      program.programId
+    ).then(x => x[0])
+  }
+
+  it('Creates potion', async () => {
+    const potion = anchor.web3.Keypair.generate();
+
+    const nft1MetadataPubKey = await getNftMetadataPubKey(nft1);
+    const nft2MetadataPubKey = await getNftMetadataPubKey(nft2);
+
+    await program.rpc.createPotion(userPubKey, {
+      accounts: {
+        user: userPubKey,
+        potion: potion.publicKey,
+        tokenUserAccount: tokenUserAccountPubKey,
+        tokenMint: tokenMintPubKey,
+        // potionMint: potionMintPubKey,
+        nft1: nft1.publicKey,
+        nft1Metadata: nft1MetadataPubKey,
+        nft2: nft2.publicKey,
+        nft2Metadata: nft2MetadataPubKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        rent: SYSVAR_RENT_PUBKEY
+      },
+      signers: [potion],
+      // preInstructions: [
+      //   anchor.web3.SystemProgram.createAccount({
+      //     fromPubkey: userPubKey,
+      //     newAccountPubkey: potionMintPubKey,
+      //     space: MintLayout.span,
+      //     lamports: rent,
+      //     programId: TOKEN_PROGRAM_ID
+      //   }),
+      // ]
+    })
     
-  //   let potionAccount = await program.account.potion.fetch(potion.publicKey)
+    // Assert potion was initialized properly
+    let potionAccount = await program.account.potion.fetch(potion.publicKey)
+    assert(potionAccount.authority.equals(userPubKey))
+    assert(potionAccount.createdTimestamp.toNumber() > 0)
 
-  //   assert(potionAccount.authority.equals(wallet.publicKey))
-  //   assert(potionAccount.createdTimestamp.toNumber() > 0)
-  //   assert(potionAccount.price.toNumber() == 5)
-  //   assert(potionAccount.cooldownDays.toNumber() == 7)
-  // });
+    // Assert both NFT metadata match potion
+    let nft1Metadata = await program.account.nftMetadata.fetch(nft1MetadataPubKey)
+    assert(nft1Metadata.authority.equals(userPubKey))
+    assert(nft1Metadata.lastBredTimestamp.toNumber() == potionAccount.createdTimestamp.toNumber())
 
+    let nft2Metadata = await program.account.nftMetadata.fetch(nft2MetadataPubKey)
+    assert(nft2Metadata.authority.equals(userPubKey))
+    assert(nft2Metadata.lastBredTimestamp.toNumber() == potionAccount.createdTimestamp.toNumber())
+
+  });
+
+  it('Fails to create 2nd potion because <7 days since nfts were used', async () => {
+    const potion = anchor.web3.Keypair.generate();
+
+    const nft1MetadataPubKey = await getNftMetadataPubKey(nft1);
+    const nft2MetadataPubKey = await getNftMetadataPubKey(nft2);
+
+    let promise = program.rpc.createPotion(userPubKey, {
+      accounts: {
+        user: userPubKey,
+        potion: potion.publicKey,
+        tokenUserAccount: tokenUserAccountPubKey,
+        tokenMint: tokenMintPubKey,
+        // potionMint: potionMintPubKey,
+        nft1: nft1.publicKey,
+        nft1Metadata: nft1MetadataPubKey,
+        nft2: nft2.publicKey,
+        nft2Metadata: nft2MetadataPubKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        rent: SYSVAR_RENT_PUBKEY
+      },
+      signers: [potion]
+    })
+    
+    try {
+      await promise
+    } catch (error) {
+      console.log(<string>error.message)
+      assert((<string>error.message) == '6000: This NFT has been used for breeding in the last 7 days.')
+    }
+  });
 
   // TODO: test metadata prefix is enforced
-
-
 
   // it('Creates potion with price and cooldown', async () => {
   //   await program.rpc.createPotion(wallet.publicKey, {

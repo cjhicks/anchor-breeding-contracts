@@ -5,8 +5,34 @@ Repo for our custom breeding contracts using https://github.com/project-serum/an
 ```bash
 cd breeding_cooldown
 
-anchor build
+# TODO: create tokens
+# TODO: push these into constants
 
+# # Create fake potion token mint
+# spl-token create-token --decimals 0
+# # output: 29oqZtZxzytxuSPHVB3GaFRXR9GtEZbsdp7rFd4JsTrM
+
+# # # Create Potion account
+# spl-token create-account 29oqZtZxzytxuSPHVB3GaFRXR9GtEZbsdp7rFd4JsTrM
+# # output: A1K4uQQYhj4api5TjrZbeNPB4SE7edHjKG6A4mQGDxHM
+
+# # Mint potions
+# spl-token mint 29oqZtZxzytxuSPHVB3GaFRXR9GtEZbsdp7rFd4JsTrM 100
+# # Output: Minting 100 tokens...
+
+
+# Create fake $BAPE token mint
+spl-token create-token --decimals 0
+# output: EERuT3sK9ce5QZrQ9TsrVZXpe65JqhXh4xuAjpXPbLXD
+
+# $BAPE User Account
+spl-token create-account EERuT3sK9ce5QZrQ9TsrVZXpe65JqhXh4xuAjpXPbLXD
+# output: 6V4KfqAdedKWmGBbxU8DUqoP42fKqzxnSbQ6rxiuAiV
+
+spl-token mint EERuT3sK9ce5QZrQ9TsrVZXpe65JqhXh4xuAjpXPbLXD 1000
+# Output: Minting 1000 tokens...
+
+anchor build
 anchor test
 ```
 
@@ -86,3 +112,5 @@ anchor test
 ```
 
 Full CLI (for deploying, upgrading, etc) available at https://project-serum.github.io/anchor/cli/commands.html
+
+
