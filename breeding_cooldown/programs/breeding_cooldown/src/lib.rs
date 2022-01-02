@@ -5,18 +5,19 @@ use solana_program;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
+fn get_timestamp() -> u64 {
+    return Clock::get().unwrap().unix_timestamp as u64;
+}
+
+fn get_breed_min_timestamp(timestamp: u64) -> u64 {
+    let seven_days_in_seconds = 7 * 24 * 60 * 60;
+    return timestamp - seven_days_in_seconds;
+}
+
 #[program]
 pub mod breeding_cooldown {
     use super::*;
 
-    fn get_timestamp() -> u64 {
-        return Clock::get()?.unix_timestamp as u64;
-    }
-    
-    fn get_breed_min_timestamp(timestamp: u64) -> u64 {
-        let seven_days_in_seconds = 7 * 24 * 60 * 60;
-        return timestamp - seven_days_in_seconds;
-    }
 
     /*
     This function is equivalent to breeding an egg: https://explorer.solana.com/tx/g5fg51XveddE1MyU3GsEUpU6e3vUz1BhWNBvye6hBziDZbKsBv4H1UjLEKr1rjLFtABt6YNM6TBBoMzDxtQ5td5
@@ -58,43 +59,47 @@ pub mod breeding_cooldown {
 
         // TODO: do I need all this below? Can I just use constraints in anchor? Test in devnet
         // Token.createInitMintInstruction(TOKEN_PROGRAM_ID, potion_mint, 0, walletKey, walletKey)
-        let init_mint_ctx = CpiContext::new(
-            token_program.clone(),
-            anchor_spl::token::InitializeMint {
-                mint: potion_mint.to_account_info(),
-                rent: rent.to_account_info()
-            }
-        );
-        anchor_spl::token::initialize_mint(init_mint_ctx, 0, &user.key(), Some(&user.key()))
-            .expect("Init Mint failed.");
 
-        //   createAssociatedTokenAccountInstruction(potionToken, walletKey, walletKey, potionMint),
-        let create_associated_token_ctx = CpiContext::new(
-            token_program.clone(),
-            anchor_spl::associated_token::Create {
-                payer: user.to_account_info(),
-                associated_token: potion.to_account_info(),
-                authority: user.to_account_info(),
-                mint: potion_mint.to_account_info(),
-                system_program: system_program.to_account_info(),
-                token_program: token_program.to_account_info(),
-                rent: rent.clone(),
-            }
-        );
-        anchor_spl::associated_token::create(create_associated_token_ctx)
-            .expect("Create Associated Token failed.");
 
-        //   Token.createMintToInstruction(TOKEN_PROGRAM_ID, potionMint, potionToken, walletKey, [], 1),
-        let mint_to_ctx = CpiContext::new(
-            token_program.clone(),
-            anchor_spl::token::MintTo {
-                mint: potion_mint.to_account_info(),
-                to: potion.to_account_info(),
-                authority: user.to_account_info(),
-            }
-        );
-        anchor_spl::token::mint_to(mint_to_ctx, 1)
-            .expect("Mint To failed.");
+
+
+        // let init_mint_ctx = CpiContext::new(
+        //     token_program.clone(),
+        //     anchor_spl::token::InitializeMint {
+        //         mint: potion_mint.to_account_info(),
+        //         rent: rent.to_account_info()
+        //     }
+        // );
+        // anchor_spl::token::initialize_mint(init_mint_ctx, 0, &user.key(), Some(&user.key()))
+        //     .expect("Init Mint failed.");
+
+        // //   createAssociatedTokenAccountInstruction(potionToken, walletKey, walletKey, potionMint),
+        // let create_associated_token_ctx = CpiContext::new(
+        //     token_program.clone(),
+        //     anchor_spl::associated_token::Create {
+        //         payer: user.to_account_info(),
+        //         associated_token: potion.to_account_info(),
+        //         authority: user.to_account_info(),
+        //         mint: potion_mint.to_account_info(),
+        //         system_program: system_program.to_account_info(),
+        //         token_program: token_program.to_account_info(),
+        //         rent: rent.clone(),
+        //     }
+        // );
+        // anchor_spl::associated_token::create(create_associated_token_ctx)
+        //     .expect("Create Associated Token failed.");
+
+        // //   Token.createMintToInstruction(TOKEN_PROGRAM_ID, potionMint, potionToken, walletKey, [], 1),
+        // let mint_to_ctx = CpiContext::new(
+        //     token_program.clone(),
+        //     anchor_spl::token::MintTo {
+        //         mint: potion_mint.to_account_info(),
+        //         to: potion.to_account_info(),
+        //         authority: user.to_account_info(),
+        //     }
+        // );
+        // anchor_spl::token::mint_to(mint_to_ctx, 1)
+        //     .expect("Mint To failed.");
 
         potion.authority = authority;
         potion.created_timestamp = timestamp;
@@ -132,11 +137,12 @@ pub mod breeding_cooldown {
         let timestamp = get_timestamp();
         let breed_min_timestamp = get_breed_min_timestamp(timestamp);
 
-        if potion.created_timestamp() < breed_min_timestamp {
+        if potion.created_timestamp < breed_min_timestamp {
             return Err(ErrorCode::CooldownNotReached.into());
         }
 
-        // TODO: mint new NFT
+        // TODO: mint new NFT (master edition)
+        // TODO: make this a reusable function
 
         // TODO: Create baby
         // client: use PublicKey.findProgramAddress to create empty (existing) address (state) for each NFT input
@@ -181,10 +187,10 @@ pub struct NftMetadata {
 
 #[derive(Accounts)]
 pub struct CreatePotion<'info> {
-    #[account(init, payer = user, space = 8 + 20)]
-    pub potion: Account<'info, Potion>,
     #[account(mut)]
     pub user: Signer<'info>,
+    #[account(init, payer = user, space = 8 + 20)]
+    pub potion: Account<'info, Potion>,
     #[account(mut)]
     pub token_user_account: AccountInfo<'info>,  // User's $BAPE account, this token type should match mint account
     #[account(mut)]

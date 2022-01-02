@@ -9,62 +9,104 @@ describe('breeding_cooldown', () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());
 
-  const wallet = anchor.getProvider().wallet;
+  const program = (<any>anchor).workspace.BreedingCooldown as Program<BreedingCooldown>;
+  const PREFIX = 'bapeBreeding';
 
+  const user = anchor.getProvider().wallet;
   const potion = anchor.web3.Keypair.generate();
 
-  const program = (<any>anchor).workspace.BreedingCooldown as Program<BreedingCooldown>;
+  const tokenUserAccount = anchor.web3.Keypair.generate();
+  const tokenMint = anchor.web3.Keypair.generate();
+  const potionMint = anchor.web3.Keypair.generate();
 
-  it('Creates potion with price and cooldown', async () => {
-    await program.rpc.createPotion(wallet.publicKey, {
-      accounts: {
-        potion: potion.publicKey,
-        user: wallet.publicKey,
-        systemProgram: SystemProgram.programId
-      },
-      signers: [potion]
-    })
+  const nft1 = anchor.web3.Keypair.generate();
+  const nft1Metadata = anchor.web3.PublicKey.findProgramAddress(
+    [Buffer.from(anchor.utils.bytes.utf8.encode(PREFIX)), nft1.publicKey.toBuffer()],
+    program.programId
+  );
+
+  const nft2 = anchor.web3.Keypair.generate();
+  const nft2Metadata = anchor.web3.PublicKey.findProgramAddress(
+    [Buffer.from(anchor.utils.bytes.utf8.encode(PREFIX)), nft1.publicKey.toBuffer()],
+    program.programId
+  );
+
+  // it('Creates potion with price and cooldown', async () => {
+  //   await program.rpc.createPotion(wallet.publicKey, {
+  //     accounts: {
+  //       user: user.publicKey,
+  //       potion: potion.publicKey,
+  //       userTokenAccount: tokenUserAccount.publicKey,
+  //       tokenMint: tokenMint.publicKey,
+  //       potionMint: potionMint.publicKey,
+  //       systemProgram: SystemProgram.programId
+  //     },
+  //     signers: [potion]
+  //   })
     
-    let potionAccount = await program.account.potion.fetch(potion.publicKey)
+  //   let potionAccount = await program.account.potion.fetch(potion.publicKey)
 
-    assert(potionAccount.authority.equals(wallet.publicKey))
-    assert(potionAccount.createdTimestamp.toNumber() > 0)
-    assert(potionAccount.price.toNumber() == 5)
-    assert(potionAccount.cooldownDays.toNumber() == 7)
-  });
+  //   assert(potionAccount.authority.equals(wallet.publicKey))
+  //   assert(potionAccount.createdTimestamp.toNumber() > 0)
+  //   assert(potionAccount.price.toNumber() == 5)
+  //   assert(potionAccount.cooldownDays.toNumber() == 7)
+  // });
 
-  it('Throws error if potion is created twice', async () => {
-    let promise = program.rpc.createPotion(wallet.publicKey, {
-      accounts: {
-        potion: potion.publicKey,
-        user: wallet.publicKey,
-        systemProgram: SystemProgram.programId
-      },
-      signers: [potion]
-    })
 
-    try {
-      await promise
-    } catch (error) {
-      console.log(<string>error.message)
-      assert((<string>error.message) == 'failed to send transaction: Transaction simulation failed: This transaction has already been processed')
-    }
-  });
+  // TODO: test metadata prefix is enforced
 
-  it('Throws error if potion cooldown not reached', async () => {
-    let promise = program.rpc.react({
-      accounts: {
-        potion: potion.publicKey,
-        authority: wallet.publicKey
-      }
-    })
 
-    try {
-      await promise
-    } catch (error) {
-      assert((<string>error.message) == '6001: This potion has not reached its cooldown period.')
-    }
-  });
+
+  // it('Creates potion with price and cooldown', async () => {
+  //   await program.rpc.createPotion(wallet.publicKey, {
+  //     accounts: {
+  //       potion: potion.publicKey,
+  //       user: wallet.publicKey,
+  //       systemProgram: SystemProgram.programId
+  //     },
+  //     signers: [potion]
+  //   })
+    
+  //   let potionAccount = await program.account.potion.fetch(potion.publicKey)
+
+  //   assert(potionAccount.authority.equals(wallet.publicKey))
+  //   assert(potionAccount.createdTimestamp.toNumber() > 0)
+  //   assert(potionAccount.price.toNumber() == 5)
+  //   assert(potionAccount.cooldownDays.toNumber() == 7)
+  // });
+
+  // it('Throws error if potion is created twice', async () => {
+  //   let promise = program.rpc.createPotion(wallet.publicKey, {
+  //     accounts: {
+  //       potion: potion.publicKey,
+  //       user: wallet.publicKey,
+  //       systemProgram: SystemProgram.programId
+  //     },
+  //     signers: [potion]
+  //   })
+
+  //   try {
+  //     await promise
+  //   } catch (error) {
+  //     console.log(<string>error.message)
+  //     assert((<string>error.message) == 'failed to send transaction: Transaction simulation failed: This transaction has already been processed')
+  //   }
+  // });
+
+  // it('Throws error if potion cooldown not reached', async () => {
+  //   let promise = program.rpc.react({
+  //     accounts: {
+  //       potion: potion.publicKey,
+  //       authority: wallet.publicKey
+  //     }
+  //   })
+
+  //   try {
+  //     await promise
+  //   } catch (error) {
+  //     assert((<string>error.message) == '6001: This potion has not reached its cooldown period.')
+  //   }
+  // });
 
   // it('Increments counter', async () => {
   //   await program.rpc.increment({
