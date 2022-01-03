@@ -27,7 +27,7 @@ pub mod breeding_cooldown {
         let program_id = &ctx.program_id;
         let token_program = &ctx.accounts.token_program;
         let user = &ctx.accounts.user;
-        let token_user_account = ctx.accounts.token_user_account.to_account_info();
+        let token_user_account = &ctx.accounts.token_user_account;
         let token_mint = ctx.accounts.token_mint.to_account_info();
         // let potion_mint = ctx.accounts.potion_mint.to_account_info();
         let rent = &ctx.accounts.rent;
@@ -36,6 +36,12 @@ pub mod breeding_cooldown {
         /*
         Validation
         */
+        // check if we have enough $BAPE before continuing
+        let burn_price = 350;
+        if token_user_account.amount < burn_price {
+            return Err(ErrorCode::InsufficientFunds.into())
+        }
+
         // check if 7 days since last breeding
         let timestamp = get_timestamp();
         let breed_min_timestamp = get_breed_min_timestamp(timestamp);
@@ -52,6 +58,8 @@ pub mod breeding_cooldown {
         /* 
         Mint new NFT for potion
         */
+
+        // TODO: uncomment this, we need an NFT or some sort of guarantee the relation when the potion is reacted
 
         // TODO: I think anchor does this automatically with account(init, ...)
         // anchor.web3.SystemProgram.createAccount({fromPubkey: walletKey, newAccountPubkey: potionMint, space: MintLayout.span, lamports: rent, programId: TOKEN_PROGRAM_ID,}),
@@ -106,11 +114,10 @@ pub mod breeding_cooldown {
         /*
         Burn $BAPE after minting potion
         */
-        let burn_price = 350;
         let burn_ctx = CpiContext::new(
             token_program.clone(),
             anchor_spl::token::Burn {
-                to: token_user_account,
+                to: token_user_account.to_account_info(),
                 mint: token_mint,
                 authority: user.to_account_info(),
             }
@@ -246,4 +253,6 @@ pub enum ErrorCode {
     NftUsedTooSoon,
     #[msg("This potion has not reached its cooldown period.")]
     CooldownNotReached,
+    #[msg("User has insufficient funds to complete the transaction.")]
+    InsufficientFunds,
 }

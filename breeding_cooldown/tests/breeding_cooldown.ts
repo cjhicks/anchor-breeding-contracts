@@ -140,7 +140,46 @@ describe('breeding_cooldown', () => {
     }
   });
 
-  // TODO: test insufficient $BAPE
+  it('Throws error if not enough $BAPE to create potion', async () => {
+    const potion = anchor.web3.Keypair.generate();
+
+    // create $BAPE mint, and add $BAPE to user account
+    const tokenMintPubKey = await createMint(program.provider, userPubKey, 0);
+    // Create user and program $BAPE accounts
+    let tokenUserAccountPubKey = await createTokenAccount(program.provider, tokenMintPubKey, userPubKey);
+    // Fund user with 500 $BAPE
+    await mintToAccount(program.provider, tokenMintPubKey, tokenUserAccountPubKey, 349, userPubKey);
+    // Create PDA's for nft metadata
+    const nft1 = anchor.web3.Keypair.generate();
+    const nft2 = anchor.web3.Keypair.generate();
+    const nft1MetadataPubKey = await getNftMetadataPubKey(nft1);
+    const nft2MetadataPubKey = await getNftMetadataPubKey(nft2);
+
+    let promise = await program.rpc.createPotion(userPubKey, {
+      accounts: {
+        user: userPubKey,
+        potion: potion.publicKey,
+        tokenUserAccount: tokenUserAccountPubKey,
+        tokenMint: tokenMintPubKey,
+        // potionMint: potionMintPubKey,
+        nft1: nft1.publicKey,
+        nft1Metadata: nft1MetadataPubKey,
+        nft2: nft2.publicKey,
+        nft2Metadata: nft2MetadataPubKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        rent: SYSVAR_RENT_PUBKEY
+      },
+      signers: [potion]
+    })
+
+    try {
+      await promise
+    } catch (error) {
+      console.log(<string>error.message)
+      assert((<string>error.message) == '6000: User has insufficient funds to complete the transaction.')
+    }
+  });
 
   // TODO: succeeds if NFT's breeded more than 7 days ago
 
