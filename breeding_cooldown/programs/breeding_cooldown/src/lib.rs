@@ -18,7 +18,6 @@ fn get_breed_min_timestamp(timestamp: u64) -> u64 {
 pub mod breeding_cooldown {
     use super::*;
 
-
     /*
     This function is equivalent to breeding an egg: https://explorer.solana.com/tx/g5fg51XveddE1MyU3GsEUpU6e3vUz1BhWNBvye6hBziDZbKsBv4H1UjLEKr1rjLFtABt6YNM6TBBoMzDxtQ5td5
     */
@@ -211,9 +210,11 @@ pub struct CreatePotion<'info> {
     // #[account(mut, owner = user)]
     // pub potion_mint: AccountInfo<'info>, // mint for potions
     // TODO: owner is user
+    #[account(owner = user)]
     pub nft_1: AccountInfo<'info>,
     #[account(init_if_needed, seeds = [b"bapeBreeding".as_ref(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_1_metadata: Account<'info, NftMetadata>,
+    #[account(owner = user)]
     pub nft_2: AccountInfo<'info>,
     #[account(init_if_needed, seeds = [b"bapeBreeding".as_ref(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]    // pub nft_2_metadata: Account<'info, NftMetadata>,
     pub nft_2_metadata: Account<'info, NftMetadata>,
