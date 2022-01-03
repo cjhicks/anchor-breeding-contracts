@@ -86,8 +86,8 @@ describe('breeding_cooldown', () => {
     const tokenMintPubKey = await createMint(program.provider, userPubKey, 0);
     // Create user and program $BAPE accounts
     let tokenUserAccountPubKey = await createTokenAccount(program.provider, tokenMintPubKey, userPubKey);
-    // Fund user with 500 $BAPE
-    await mintToAccount(program.provider, tokenMintPubKey, tokenUserAccountPubKey, 500, userPubKey);
+    // Fund user with 1000 $BAPE (enough for 2 transactions)
+    await mintToAccount(program.provider, tokenMintPubKey, tokenUserAccountPubKey, 1000, userPubKey);
     // Create PDA's for nft metadata
     const nft1 = anchor.web3.Keypair.generate();
     const nft2 = anchor.web3.Keypair.generate();
@@ -114,29 +114,40 @@ describe('breeding_cooldown', () => {
     })
     await promise
     
+    // Create again with different potion
+    let potion2 = anchor.web3.Keypair.generate();
+    let promise2 = program.rpc.createPotion(userPubKey, {
+      accounts: {
+        user: userPubKey,
+        potion: potion2.publicKey,
+        tokenUserAccount: tokenUserAccountPubKey,
+        tokenMint: tokenMintPubKey,
+        // potionMint: potionMintPubKey,
+        nft1: nft1.publicKey,
+        nft1Metadata: nft1MetadataPubKey,
+        nft2: nft2.publicKey,
+        nft2Metadata: nft2MetadataPubKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        rent: SYSVAR_RENT_PUBKEY
+      },
+      signers: [potion2]
+    })
     try {
-      // Create again with different potion
-      let potion2 = anchor.web3.Keypair.generate();
-      let promise2 = program.rpc.createPotion(userPubKey, {
-        accounts: {
-          user: userPubKey,
-          potion: potion2.publicKey,
-          tokenUserAccount: tokenUserAccountPubKey,
-          tokenMint: tokenMintPubKey,
-          // potionMint: potionMintPubKey,
-          nft1: nft1.publicKey,
-          nft1Metadata: nft1MetadataPubKey,
-          nft2: nft2.publicKey,
-          nft2Metadata: nft2MetadataPubKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-          rent: SYSVAR_RENT_PUBKEY
-        },
-        signers: [potion2]
-      })
       await promise2
     } catch (error) {
-      assert((<string>error.message) == '6000: This NFT has been used for breeding in the last 7 days.')
+      assert((<string>error.message).endsWith('This NFT has been used for breeding in the last 7 days.'))
+    }
+
+    // Assert that 350 $BAPE was only burned once
+    let tokenUserAccount = await getTokenAccount(program.provider, tokenUserAccountPubKey);
+    assert(tokenUserAccount.amount.toNumber() == 650)
+
+    // Assert 2nd potion was not created
+    try {
+      await program.account.potion.fetch(potion2.publicKey)
+    } catch (error) {
+      assert((<string>error.message).includes('Account does not exist'))
     }
   });
 
@@ -155,7 +166,7 @@ describe('breeding_cooldown', () => {
     const nft1MetadataPubKey = await getNftMetadataPubKey(nft1);
     const nft2MetadataPubKey = await getNftMetadataPubKey(nft2);
 
-    let promise = await program.rpc.createPotion(userPubKey, {
+    let promise = program.rpc.createPotion(userPubKey, {
       accounts: {
         user: userPubKey,
         potion: potion.publicKey,
@@ -176,8 +187,17 @@ describe('breeding_cooldown', () => {
     try {
       await promise
     } catch (error) {
-      console.log(<string>error.message)
-      assert((<string>error.message) == '6000: User has insufficient funds to complete the transaction.')
+      assert((<string>error.message).endsWith('User has insufficient funds to complete the transaction.'))
+    }
+    // Assert that $BAPE was not burned
+    let tokenUserAccount = await getTokenAccount(program.provider, tokenUserAccountPubKey);
+    assert(tokenUserAccount.amount.toNumber() == 349)
+
+    // Assert potion was not created
+    try {
+      await program.account.potion.fetch(potion.publicKey)
+    } catch (error) {
+      assert((<string>error.message).includes('Account does not exist'))
     }
   });
 
