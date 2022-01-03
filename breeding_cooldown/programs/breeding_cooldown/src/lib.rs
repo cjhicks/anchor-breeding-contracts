@@ -106,17 +106,17 @@ pub mod breeding_cooldown {
         /*
         Burn $BAPE after minting potion
         */
-        // let burn_price = 350;
-        // let burn_ctx = CpiContext::new(
-        //     token_program.clone(),
-        //     anchor_spl::token::Burn {
-        //         to: token_user_account,
-        //         mint: token_mint,
-        //         authority: user.to_account_info(),
-        //     }
-        // );
-        // anchor_spl::token::burn(burn_ctx, burn_price)
-        //     .expect("burn failed.");
+        let burn_price = 350;
+        let burn_ctx = CpiContext::new(
+            token_program.clone(),
+            anchor_spl::token::Burn {
+                to: token_user_account,
+                mint: token_mint,
+                authority: user.to_account_info(),
+            }
+        );
+        anchor_spl::token::burn(burn_ctx, burn_price)
+            .expect("burn failed.");
 
         Ok(())
     }
@@ -197,10 +197,10 @@ pub struct CreatePotion<'info> {
     #[account(init, payer = user, space = 8 + 40)]
     pub potion: Account<'info, Potion>,
     // TODO: owner = user, or token mint?
-    // #[account(mut)]
+    #[account(mut)]
     pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
-    // #[account(mut)]
-    pub token_mint: Account<'info, anchor_spl::token::TokenAccount>,  // $BAPE mint, generic enough for any token though
+    #[account(mut)]
+    pub token_mint: Account<'info, anchor_spl::token::Mint>,  // $BAPE mint, generic enough for any token though
     // #[account(mut, owner = user)]
     // pub potion_mint: AccountInfo<'info>, // mint for potions
     // TODO: owner is user
