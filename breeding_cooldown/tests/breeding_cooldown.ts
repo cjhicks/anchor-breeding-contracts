@@ -4,6 +4,7 @@ import { BreedingCooldown } from '../target/types/breeding_cooldown';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { createMint, createTokenAccount, getTokenAccount } from '@project-serum/common';
 import { mintToAccount } from './utils';
+import { PublicKey } from '@solana/web3.js';
 
 const { SystemProgram, SYSVAR_RENT_PUBKEY } = anchor.web3;
 const assert = require("assert");
@@ -18,7 +19,21 @@ describe('breeding_cooldown', () => {
   const PREFIX = 'bapeBreeding';
 
   const userPubKey = anchor.getProvider().wallet.publicKey;
-  const potionMintPubKey = anchor.web3.Keypair.generate().publicKey; // new anchor.web3.PublicKey("29oqZtZxzytxuSPHVB3GaFRXR9GtEZbsdp7rFd4JsTrM"); // 
+
+  // async function createUserAccountWithTokens(amount: number) {
+  //   // create mint, and add $BAPE to user account
+  //   const mintPubKey = await createMint(program.provider, userPubKey, 0);
+  //   // Create user accounts
+  //   let tokenUserAccountPubKey = await createTokenAccount(program.provider, mintPubKey, userPubKey);
+  //   // Fund user with 500 $BAPE
+  //   await mintToAccount(program.provider, mintPubKey, tokenUserAccountPubKey, 349, userPubKey);
+
+  //   return tokenUserAccountPubKey;
+  // }
+
+  // async function createUserNftAccount() {
+  //   return await createUserAccountWithTokens(1)
+  // }
 
   async function getNftMetadataPubKey(nft: anchor.web3.Keypair): Promise<anchor.web3.PublicKey> {
     return anchor.web3.PublicKey.findProgramAddress(
@@ -41,6 +56,9 @@ describe('breeding_cooldown', () => {
     const nft2 = anchor.web3.Keypair.generate();
     const nft1MetadataPubKey = await getNftMetadataPubKey(nft1);
     const nft2MetadataPubKey = await getNftMetadataPubKey(nft2);
+    // Create Potion Mint
+    // const potionMintPubKey = await createMint(program.provider, userPubKey, 0);
+    // let potionUserAccountPubKey = anchor.web3.Keypair.generate();
 
     await program.rpc.createPotion(userPubKey, {
       accounts: {
@@ -49,6 +67,7 @@ describe('breeding_cooldown', () => {
         tokenUserAccount: tokenUserAccountPubKey,
         tokenMint: tokenMintPubKey,
         // potionMint: potionMintPubKey,
+        // potionUserAccount: potionUserAccountPubKey,
         nft1: nft1.publicKey,
         nft1Metadata: nft1MetadataPubKey,
         nft2: nft2.publicKey,
@@ -69,10 +88,12 @@ describe('breeding_cooldown', () => {
     let nft1Metadata = await program.account.nftMetadata.fetch(nft1MetadataPubKey)
     assert(nft1Metadata.authority.equals(userPubKey))
     assert(nft1Metadata.lastBredTimestamp.toNumber() == potionAccount.createdTimestamp.toNumber())
+    assert(nft1Metadata.nft.equals(potionAccount.nft1))
 
     let nft2Metadata = await program.account.nftMetadata.fetch(nft2MetadataPubKey)
     assert(nft2Metadata.authority.equals(userPubKey))
     assert(nft2Metadata.lastBredTimestamp.toNumber() == potionAccount.createdTimestamp.toNumber())
+    assert(nft2Metadata.nft.equals(potionAccount.nft2))
 
     // Assert that 350 $BAPE was burned
     let tokenUserAccount = await getTokenAccount(program.provider, tokenUserAccountPubKey);
@@ -201,95 +222,18 @@ describe('breeding_cooldown', () => {
     }
   });
 
-  // TODO: succeeds if NFT's breeded more than 7 days ago
+  // TODO: verify Owner actually own's these NFT's
 
-  // TODO: test metadata prefix is enforced
+  
+  // TODO: Regular Reaction tests
+  // TODO: verify regular reaction is authorized
+  // TODO: verify NFT's match potion
+  // TODO: verify 7 day window has passed
 
-  // it('Creates potion with price and cooldown', async () => {
-  //   await program.rpc.createPotion(wallet.publicKey, {
-  //     accounts: {
-  //       potion: potion.publicKey,
-  //       user: wallet.publicKey,
-  //       systemProgram: SystemProgram.programId
-  //     },
-  //     signers: [potion]
-  //   })
-    
-  //   let potionAccount = await program.account.potion.fetch(potion.publicKey)
 
-  //   assert(potionAccount.authority.equals(wallet.publicKey))
-  //   assert(potionAccount.createdTimestamp.toNumber() > 0)
-  //   assert(potionAccount.price.toNumber() == 5)
-  //   assert(potionAccount.cooldownDays.toNumber() == 7)
-  // });
-
-  // it('Throws error if potion is created twice', async () => {
-  //   let promise = program.rpc.createPotion(wallet.publicKey, {
-  //     accounts: {
-  //       potion: potion.publicKey,
-  //       user: wallet.publicKey,
-  //       systemProgram: SystemProgram.programId
-  //     },
-  //     signers: [potion]
-  //   })
-
-  //   try {
-  //     await promise
-  //   } catch (error) {
-  //     console.log(<string>error.message)
-  //     assert((<string>error.message) == 'failed to send transaction: Transaction simulation failed: This transaction has already been processed')
-  //   }
-  // });
-
-  // it('Throws error if potion cooldown not reached', async () => {
-  //   let promise = program.rpc.react({
-  //     accounts: {
-  //       potion: potion.publicKey,
-  //       authority: wallet.publicKey
-  //     }
-  //   })
-
-  //   try {
-  //     await promise
-  //   } catch (error) {
-  //     assert((<string>error.message) == '6001: This potion has not reached its cooldown period.')
-  //   }
-  // });
-
-  // it('Increments counter', async () => {
-  //   await program.rpc.increment({
-  //     accounts: {
-  //       counter: counter.publicKey,
-  //       authority: wallet.publicKey
-  //     }
-  //   })
-
-  //   let counterAccount = await program.account.counter.fetch(counter.publicKey)
-
-  //   assert(counterAccount.authority.equals(wallet.publicKey))
-  //   assert(counterAccount.count.toNumber() == 1)
-  // });
-
-  // it('Throws error if wallet is not authorized to increment', async () => {
-  //   let wrongWalletPubKey = anchor.web3.Keypair.generate();
-
-  //   let promise = program.rpc.increment({
-  //     accounts: {
-  //       counter: counter.publicKey,
-  //       authority: wrongWalletPubKey
-  //     }
-  //   })
-
-  //   try {
-  //     await promise
-  //   } catch (error) {
-  //     assert((<string>error.message) == 'Wrong input type for account "authority" in the instruction accounts object for instruction "increment". Expected PublicKey or string.')
-  //   }
-
-  //   // assert counter left unchanged
-  //   let counterAccount = await program.account.counter.fetch(counter.publicKey)
-  //   assert(counterAccount.authority.equals(wallet.publicKey))
-  //   assert(counterAccount.count.toNumber() == 1)
-  // });
+  // TODO: Fast Reaction tests
+  // TODO: verify regular reaction is authorized
+  // TODO: verify NFT's match potion
+  // TODO: verify user has enough $BAPE to burn
 
 });
