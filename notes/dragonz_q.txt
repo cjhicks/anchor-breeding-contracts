@@ -1,0 +1,25 @@
+How do we know which dragon's cannot be used to create an egg? Stake?
+
+Trace back to selectedDragon1...
+
+
+What does getEggState() do?
+
+What does getDragonzState() do?
+- lastBreedTs: this is important!!!
+- to find it, we use PublicKey.findProgramAddress with a PREFIX. Do we do this already?
+  - prefix == Seeds for program
+
+
+
+TODO: Create Potion
+client: use PublicKey.findProgramAddress to create empty new address (state) for each NFT input
+
+server: verify bape1BreedingState, etc is not already initialized, or at least not within 7 days
+- if not, create!
+- set egg cooldown to 7 days
+
+TODO: Create baby
+client: use PublicKey.findProgramAddress to create empty (existing) address (state) for each NFT input
+server: verify egg over 7 days - no parent necessary?
+- or, should we require pass it in to verify its still held?

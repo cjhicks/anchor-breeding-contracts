@@ -224,7 +224,6 @@ describe('breeding_cooldown', () => {
 
   // TODO: verify Owner actually own's these NFT's
 
-  
   // TODO: Regular Reaction tests
   // TODO: verify regular reaction is authorized
   // TODO: verify NFT's match potion
