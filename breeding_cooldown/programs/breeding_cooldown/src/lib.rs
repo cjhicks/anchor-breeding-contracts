@@ -56,6 +56,9 @@ pub mod breeding_cooldown {
         /* 
         Mint new NFT for potion
         */
+        // almost same metadata
+        // same image?
+
         // TODO: create / init potion user account
         // TODO: mint 1 NFT to user account
         // TODO: freeze account!
@@ -150,16 +153,21 @@ pub mod breeding_cooldown {
         */
         let user_key = *ctx.accounts.user.key;
         let potion = &mut ctx.accounts.potion;
-        let nft_1_metadata = &ctx.accounts.nft_1_metadata;
-        let nft_2_metadata = &ctx.accounts.nft_2_metadata;
+        // let nft_1_metadata = &ctx.accounts.nft_1_metadata;
+        // let nft_2_metadata = &ctx.accounts.nft_2_metadata;
 
-        if potion.authority != user_key || nft_1_metadata.authority != user_key || nft_2_metadata.authority != user_key {
+        // TODO: Token Owner is me
+        // TODO: Harcoded Potion Mint ID?
+
+        // TODO: mint before hand? init mint?
+
+        // mint authority - one that minted it
+
+        // TODO: createAssociatedTokenAccountInstruction(potionToken, walletKey, walletKey, potionMint),
+        // TODO: Transfer Potion
+
+        if potion.authority != user_key { //|| nft_1_metadata.authority != user_key || nft_2_metadata.authority != user_key {
             return Err(ErrorCode::Unauthorized.into());
-        }
-
-        if !((potion.nft1 == nft_1_metadata.nft && potion.nft2 == nft_2_metadata.nft) ||
-            (potion.nft1 == nft_2_metadata.nft && potion.nft2 == nft_1_metadata.nft)) {
-            return Err(ErrorCode::Mismatch.into());
         }
 
         if potion.created_timestamp > breed_min_timestamp {
@@ -168,6 +176,7 @@ pub mod breeding_cooldown {
 
         // TODO: mint new NFT (master edition)
         // TODO: make this a reusable function
+        // TODO: for now, maybe follow this? Then hook into candy machine later: https://spl.solana.com/token#example-create-a-non-fungible-token
 
         // TODO: Create baby
         // client: use PublicKey.findProgramAddress to create empty (existing) address (state) for each NFT input
@@ -197,15 +206,18 @@ pub mod breeding_cooldown {
         let potion = &mut ctx.accounts.potion;
         let nft_1_metadata = &ctx.accounts.nft_1_metadata;
         let nft_2_metadata = &ctx.accounts.nft_2_metadata;
+        let token_program = &ctx.accounts.token_program;
+        let user = &ctx.accounts.user;
+        let token_mint = ctx.accounts.token_mint.to_account_info();
 
         if potion.authority != user_key || nft_1_metadata.authority != user_key || nft_2_metadata.authority != user_key {
             return Err(ErrorCode::Unauthorized.into());
         }
 
-        if !((potion.nft1 == nft_1_metadata.nft && potion.nft2 == nft_2_metadata.nft) ||
-            (potion.nft1 == nft_2_metadata.nft && potion.nft2 == nft_1_metadata.nft)) {
-            return Err(ErrorCode::Mismatch.into());
-        }
+        // if !((potion.nft1 == nft_1_metadata.nft && potion.nft2 == nft_2_metadata.nft) ||
+        //     (potion.nft1 == nft_2_metadata.nft && potion.nft2 == nft_1_metadata.nft)) {
+        //     return Err(ErrorCode::Mismatch.into());
+        // }
         // TODO: do fast reaction (burn more $BAPE?)
         let token_user_account = &ctx.accounts.token_user_account;
         let fast_burn_price = 175;
@@ -215,7 +227,18 @@ pub mod breeding_cooldown {
 
         // TODO: mint new NFT
 
+        anchor_spl::token::transfer(ctx: CpiContext<'a, 'b, 'c, 'info, Transfer<'info>>, amount: u64)
         // TODO: after mint successful, burn 175 $BAPE
+        let burn_ctx = CpiContext::new(
+            token_program.clone(),
+            anchor_spl::token::Burn {
+                to: token_user_account.to_account_info(),
+                mint: token_mint,
+                authority: user.to_account_info(),
+            }
+        );
+        anchor_spl::token::burn(burn_ctx, fast_burn_price)
+            .expect("burn failed.");
 
         Ok(())
     }
@@ -273,12 +296,13 @@ pub struct React<'info> {
     #[account(mut, owner = *user.key)]
     pub potion: Account<'info, Potion>,
 
-    pub nft_1: AccountInfo<'info>,
-    #[account(seeds = [b"bapeBreeding".as_ref(), nft_1.key.as_ref()], bump)] 
-    pub nft_1_metadata: Account<'info, NftMetadata>,
-    pub nft_2: AccountInfo<'info>,
-    #[account(seeds = [b"bapeBreeding".as_ref(), nft_2.key.as_ref()], bump)] 
-    pub nft_2_metadata: Account<'info, NftMetadata>,
+    // don't need this
+    // pub nft_1: AccountInfo<'info>,
+    // #[account(seeds = [b"bapeBreeding".as_ref(), nft_1.key.as_ref()], bump)] 
+    // pub nft_1_metadata: Account<'info, NftMetadata>,
+    // pub nft_2: AccountInfo<'info>,
+    // #[account(seeds = [b"bapeBreeding".as_ref(), nft_2.key.as_ref()], bump)] 
+    // pub nft_2_metadata: Account<'info, NftMetadata>,
 
     pub baby_mint: AccountInfo<'info>, // mint for baby
     pub baby_nft: AccountInfo<'info>,

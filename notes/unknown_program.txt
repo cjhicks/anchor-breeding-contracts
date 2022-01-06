@@ -1,0 +1,102 @@
+Program	
+brd516WNwrbXUEAukyP61zLtY869c2n4JyKE5F2ZUNY
+
+Account #1 WritableSigner	
+BdBdBf11qYCBxEeW1FivX2WjkS2HAJjucvjwuWGJ3rGC
+walletKey
+
+Account #2Writable	
+BOKU
+bokuMint
+
+Account #3Writable	
+2RcnkRWJDN6ftmwwf8emYCwnvymehzxAx42RfrJBsAEm
+bokuToken
+
+Account #4	
+9Heyc6vpvhrbvdgSTE6X4S7AnQkCzpBaeTrignr2Ektk
+dragonz1Mint: dragonz1
+
+Account #5	
+4eXx3oiADsquZVJcz1dmFDnWAjqynVQn9yTJsMqTFPSc
+dragonz1Token
+
+Account #6	
+DvGVaYf6zzsAfTGzXtAh3hCmUQSyHU4ZMa7WcTKFGWHb
+dragonz1Metadata
+
+Account #7Writable	
+A5DKhPUPbGZ7B1QTc7yT5LmGhsoDxx9dvpoHyXYanD9T
+dragonz1State
+
+Account #8	
+E7NTtn3j4FWkVyGk1KYKkFaaDeAAT7W3gSJdicRFq9Bc
+dragonz2Mint: dragonz2
+
+Account #9	
+BdXeXYco58wbddQCGYAy9m8tk3EZw3zDHCv8B45KfQEP
+dragonz2Token
+
+Account #10	
+GPKf6KUt5TY4MBdyPa2tN2ub913mChvpy1YEsLz8ng9s
+dragonz2Metadata
+
+Account #11Writable	
+9LqbPe9fES97H5qxRkC3uipXkrEECVWxm7erZkNuq5MF
+dragonz2State
+
+Account #12Writable	
+8Ff1cbNsVQnriexAYrzFtQC4uXTrvjUdZcHvLNsdeMJ4
+breedingState
+
+Account #13WritableSigner	
+HxoPPqTEkZfYEUNsXyLgywgJFJ65EKT6BacaXqKTJGuX
+eggMint
+
+Account #14Writable	
+EmBhgqSZu6ik1fKeFv9o4URg8XEVWCYVGvCVkHFz1TsM
+eggState
+
+Account #15Writable	
+6dmSX5ffTGLEwtgP5B2f3y3eooNuzfVpZ3R5JNwA2Sx6
+eggMetadata
+
+Account #16Writable	
+H4nmaP916d5v9zfFms7daESbjAUo1mewn5PY3jYsezez
+eggMasterEdition
+
+Account #17	
+2kBDMFhxcKugjT1JNhiRD2Wxg88rx9zwh5gR7WSdKZC8
+eggCreator
+
+Account #18	
+DRGNjvBvnXNiQz9dTppGk1tAsVxtJsvhEmojEfBU3ezf
+dragonzMain
+
+Account #19	
+System Program
+Account #20	
+Token Program
+Account #21	
+Token Metadata Program
+Account #22	
+Sysvar: Clock
+Account #23	
+Sysvar: Rent
+Instruction Data (Hex)	
+
+
+        // 5.1 - CreateAccount (from: walleyKey, to: eggState) - 2nd function?
+        // 5.2 - Burn 840 BOKU
+        // 5.3 - Token Metadata Program (Unknown Insruction) (eggMetadata, eggMint, walletKey, eggCreator)
+        // TODO: what makes egg metadata special? check others too
+        // 5.4 - System: Transfer - From walletKey to eggCreator
+        // 5.5 - Allocate Account (eggMetadata)
+        // 5.6 - Assign Account (eggMetadata, to the Token Metadata Program)
+        // 5.7 - Token Metadata Program: Unknown Instruction (eggMasterEdition (w), eggMint (s, w), eggCreator, walletKey (s, w), walletKey(s, w), eggMetadata (w))
+        // 5.8 - System: Transfer - From walletKey to eggMasterEdition
+        // 5.9 - System: Allocate Account (eggMasterEdition)
+        // 5.10 - Assign Account (eggMasterEdition, to the Token Metadata Program)
+        // 5.11 - token: Set Authority (mintTokens) (eggMint, Multisig=walletKey, newAuthority: eggMasterEdition, walletKey->Signer)
+        // 5.12 - token: Freeze Account (mintTokens) (eggMint, Multisig=walletKey, newAuthority: eggMasterEdition, walletKey->Signer)
+        // 5.13 - Token Metadata Program: Unknown Instruction (eggMetadata(2), eggCreator)
