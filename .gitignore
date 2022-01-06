@@ -12,3 +12,5 @@ Cargo.lock
 hello_world
 
 node_modules/
+
+package-lock.json
