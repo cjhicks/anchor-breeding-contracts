@@ -1,11 +1,11 @@
-[programs.localnet]
+[programs.devnet]
 breeding_cooldown = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 
-[registry]
-url = "https://anchor.projectserum.com"
+# [registry]
+# url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "/Users/chicks1024/.config/solana/id.json"
 
 [scripts]
