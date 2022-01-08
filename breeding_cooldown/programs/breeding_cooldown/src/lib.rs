@@ -31,7 +31,7 @@ pub mod breeding_cooldown {
     This function is equivalent to breeding an egg: https://explorer.solana.com/tx/g5fg51XveddE1MyU3GsEUpU6e3vUz1BhWNBvye6hBziDZbKsBv4H1UjLEKr1rjLFtABt6YNM6TBBoMzDxtQ5td5
     */
     pub fn create_potion(ctx: Context<CreatePotion>, authority: Pubkey) -> ProgramResult {
-        let CANDY_MACHINE_ID = "6vHjQxYUwk9DNuJNHfRWSfH1UTuikVayP9h3H4iYW2TD";
+        // let CANDY_MACHINE_ID = "6vHjQxYUwk9DNuJNHfRWSfH1UTuikVayP9h3H4iYW2TD";
 
         let potion = &mut ctx.accounts.potion;
         let potion_mint = &mut ctx.accounts.potion_mint;
@@ -43,11 +43,24 @@ pub mod breeding_cooldown {
         let token_mint = ctx.accounts.token_mint.to_account_info();
         let rent = &ctx.accounts.rent;
         let system_program = &ctx.accounts.system_program.to_account_info();
-        let master_edition = &ctx.accounts.master_edition;
+        let potion_master_edition = &ctx.accounts.potion_master_edition;
 
         /*
         Validation
         */
+        // check token IS $bape
+        let bape_mint = "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap();
+        if token_mint.key() != bape_mint {
+            return Err(ErrorCode::WrongToken.into())
+        }
+
+        // check NFT's are not same
+        let nft_1 = &ctx.accounts.nft_1;
+        let nft_2 = &ctx.accounts.nft_2;
+        if nft_1.key() == nft_2.key() {
+            return Err(ErrorCode::SameNFTs.into())
+        }
+
         // check if we have enough $BAPE before continuing
         let token_user_account = &ctx.accounts.token_user_account;
         let burn_price = 500;
@@ -190,7 +203,7 @@ pub mod breeding_cooldown {
         invoke_signed(
             &create_master_edition(
                 spl_token_metadata::id(), 
-                master_edition.key(),
+                potion_master_edition.key(),
                 potion_mint.key(),
                 price_data_info_key,
                 user.key(),
@@ -199,7 +212,7 @@ pub mod breeding_cooldown {
                 Some(0),
             ),
             &[  
-                master_edition.clone().to_account_info(),
+                potion_master_edition.clone().to_account_info(),
                 potion_mint.clone().to_account_info(),
                 // price_data_info.clone().to_account_info(),
                 user.clone().to_account_info(),
@@ -372,10 +385,7 @@ pub struct CreatePotion<'info> {
     pub potion_mint: Account<'info, anchor_spl::token::Mint>, // mint for potions
     pub potion_mint_metadata_info: AccountInfo<'info>,
     #[account(mut)]
-    master_edition: UncheckedAccount<'info>,
-    // TODO: owner = user?
-    // #[account(init, payer = user, space = 8 + 40)]
-    // pub potion_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
+    pub potion_master_edition: AccountInfo<'info>,
     // TODO: owner is user
     // #[account(owner = *user.key)]
     pub nft_1: AccountInfo<'info>,
@@ -447,6 +457,10 @@ pub enum ErrorCode {
     Unauthorized,
     #[msg("NFT's do not match token provided.")]
     Mismatch,
+    #[msg("Used wrong token.")]
+    WrongToken,
+    #[msg("Used same NFT's.")]
+    SameNFTs,
 }
 
 
