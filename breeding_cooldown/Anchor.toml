@@ -6,7 +6,7 @@ breeding_cooldown = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 
 [provider]
 cluster = "devnet"
-wallet = "/Users/chicks1024/.config/solana/id.json"
+wallet = "/Users/chicks1024/.config/solana/devnet.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

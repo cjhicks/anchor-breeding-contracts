@@ -382,7 +382,9 @@ pub struct CreatePotion<'info> {
     pub token_mint: Account<'info, anchor_spl::token::Mint>,  // $BAPE mint, generic enough for any token though
     // #[account(mut, owner = user)]
     // #[account(mut)]
+    #[account(mut)]
     pub potion_mint: Account<'info, anchor_spl::token::Mint>, // mint for potions
+    #[account(mut)]
     pub potion_mint_metadata_info: AccountInfo<'info>,
     #[account(mut)]
     pub potion_master_edition: AccountInfo<'info>,
