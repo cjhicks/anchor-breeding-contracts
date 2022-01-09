@@ -12,7 +12,7 @@ use spl_token_metadata::{
 };
 use solana_program::instruction::{Instruction,AccountMeta};
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("C94mNiioqkm2WbBzyoyRJWS1Z3JRycNSvW7N17zxqjHh");
 
 fn get_timestamp() -> u64 {
     return Clock::get().unwrap().unix_timestamp as u64;
@@ -30,24 +30,24 @@ pub mod breeding_cooldown {
     /*
     This function is equivalent to breeding an egg: https://explorer.solana.com/tx/g5fg51XveddE1MyU3GsEUpU6e3vUz1BhWNBvye6hBziDZbKsBv4H1UjLEKr1rjLFtABt6YNM6TBBoMzDxtQ5td5
     */
-    pub fn create_potion(ctx: Context<CreatePotion>, authority: Pubkey) -> ProgramResult {
+    pub fn create_potion(ctx: Context<CreatePotion>) -> ProgramResult {
         // let CANDY_MACHINE_ID = "6vHjQxYUwk9DNuJNHfRWSfH1UTuikVayP9h3H4iYW2TD";
 
         let potion = &mut ctx.accounts.potion;
-        let potion_mint = &mut ctx.accounts.potion_mint;
-        let potion_mint_metadata_info = &mut ctx.accounts.potion_mint_metadata_info;
-        // let program_id = &ctx.program_id;
-        let token_program = &ctx.accounts.token_program;
-        let token_metadata_program = &ctx.accounts.token_metadata_program;
-        let user = &ctx.accounts.user;
+        // let potion_mint = &mut ctx.accounts.potion_mint;
+        // let potion_mint_metadata_info = &mut ctx.accounts.potion_mint_metadata_info;
+        // // let program_id = &ctx.program_id;
+        // let token_program = &ctx.accounts.token_program;
+        // let token_metadata_program = &ctx.accounts.token_metadata_program;
+        // let user = &ctx.accounts.user;
         let token_mint = ctx.accounts.token_mint.to_account_info();
-        let rent = &ctx.accounts.rent;
-        let system_program = &ctx.accounts.system_program.to_account_info();
-        let potion_master_edition = &ctx.accounts.potion_master_edition;
+        // let rent = &ctx.accounts.rent;
+        // let system_program = &ctx.accounts.system_program.to_account_info();
+        // let potion_master_edition = &ctx.accounts.potion_master_edition;
 
-        /*
-        Validation
-        */
+        // /*
+        // Validation
+        // */
         // check token IS $bape
         let bape_mint = "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap();
         if token_mint.key() != bape_mint {
@@ -55,193 +55,167 @@ pub mod breeding_cooldown {
         }
 
         // check NFT's are not same
-        let nft_1 = &ctx.accounts.nft_1;
-        let nft_2 = &ctx.accounts.nft_2;
-        if nft_1.key() == nft_2.key() {
-            return Err(ErrorCode::SameNFTs.into())
-        }
+        // TODO: verified it worked! uncomment later
+        // let nft_1 = &ctx.accounts.nft_1;
+        // let nft_2 = &ctx.accounts.nft_2;
+        // if nft_1.key() == nft_2.key() {
+        //     return Err(ErrorCode::SameNFTs.into())
+        // }
 
-        // check if we have enough $BAPE before continuing
+        // // check if we have enough $BAPE before continuing
         let token_user_account = &ctx.accounts.token_user_account;
         let burn_price = 500;
         if token_user_account.amount < burn_price {
             return Err(ErrorCode::InsufficientFunds.into())
         }
 
+        // TODO: start here...
         // check if 7 days since last breeding
         let timestamp = get_timestamp();
         let breed_min_timestamp = get_breed_min_timestamp(timestamp);
 
-        let nft_1_metadata = &mut ctx.accounts.nft_1_metadata;
-        if nft_1_metadata.last_bred_timestamp > breed_min_timestamp {
-            return Err(ErrorCode::NftUsedTooSoon.into());
-        }
-        let nft_2_metadata = &mut ctx.accounts.nft_2_metadata;
-        if nft_2_metadata.last_bred_timestamp > breed_min_timestamp {
-            return Err(ErrorCode::NftUsedTooSoon.into());
-        }
+        // let nft_1_state = &mut ctx.accounts.nft_1_state;
+        // if nft_1_state.last_bred_timestamp > breed_min_timestamp {
+        //     return Err(ErrorCode::NftUsedTooSoon.into());
+        // }
+        // let nft_2_metadata = &mut ctx.accounts.nft_2_metadata;
+        // if nft_2_metadata.last_bred_timestamp > breed_min_timestamp {
+        //     return Err(ErrorCode::NftUsedTooSoon.into());
+        // }
 
-        /*
-        Transfer
-        */
-        // TODO: I think data_account_info is potion data account?
-        // invoke(
-        //     &system_instruction::transfer(user.key, data_account_info.key, required_lamports),
-        //     &[
-        //         user.clone(),
-        //         data_account_info.clone(),
-        //         system_program.clone(),
-        //     ],
-        // )?;
+        // TODO: start here instead?
+        // set metadata
+        // let nft_1_key = *ctx.accounts.nft_1.key;
+        // let nft_2_key = *ctx.accounts.nft_2.key;
+        // potion.authority = authority;
+        // potion.nft1 = nft_1_key;
+        // potion.nft2 = nft_2_key;
+        // potion.created_timestamp = timestamp;
+
+        // nft_1_state.authority = authority;
+        // nft_1_state.nft = nft_1_key;
+        // nft_1_state.last_bred_timestamp = timestamp;
+        // nft_2_metadata.authority = authority;
+        // nft_2_metadata.nft = nft_2_key;
+        // nft_2_metadata.last_bred_timestamp = timestamp;
+
+        // /*
+        // Burn $BAPE after minting potion
+        // */
+        // let burn_ctx = CpiContext::new(
+        //     token_program.clone(),
+        //     anchor_spl::token::Burn {
+        //         to: token_user_account.to_account_info(),
+        //         mint: token_mint,
+        //         authority: user.to_account_info(),
+        //     }
+        // );
+        // anchor_spl::token::burn(burn_ctx, burn_price)
+        //     .expect("burn failed.");
+
+        // /* 
+        // Mint new NFT for potion
+        // */
+        // // let mut tmp = user.clone();
+        // // tmp.is_writable=false;
+        // // TODO: literally no idea what this is, copied it from tokenBreeding2
+        // let uri = r"https://bafybeibhsnl5sz32jdfdwfvj4qea3at25wobxenzwjdirrdr2h3i4u4y2a.ipfs.infura-ipfs.io";
+        // // TODO: what are these??? Just copied from bored ape creators for now...
+        // let mut creators_ptn = vec![
+        //     Creator{
+        //         address: "7CqaVHL7Wv6RzHoRDH4govgy38uUfj75UVgCLVwrKhus".parse::<Pubkey>().unwrap(),
+        //         verified: false,
+        //         share: 100,
+        //     },
+        //     Creator{
+        //         address: "6vHjQxYUwk9DNuJNHfRWSfH1UTuikVayP9h3H4iYW2TD".parse::<Pubkey>().unwrap(),
+        //         verified: false,
+        //         share: 0,
+        //     },
+        // ];
+        // let price_data_info_key = "7CqaVHL7Wv6RzHoRDH4govgy38uUfj75UVgCLVwrKhus".parse::<Pubkey>().unwrap(); // update authority? *price_data_info.key,
+        // let vault_creator = Creator{
+        //     address: price_data_info_key,
+        //     verified: true,
+        //     share: 0,
+        // };
+        // creators_ptn.insert(0,vault_creator);
+        // let (price_address, price_bump) = Pubkey::find_program_address(&[&"price".as_bytes()], &ctx.program_id);
         // invoke_signed(
-        //     &system_instruction::allocate(data_account_info.key, size as u64),
-        //     &[
-        //         data_account_info.clone(),
+        //     &create_metadata_accounts(
+        //         spl_token_metadata::id(), 
+        //         potion_mint_metadata_info.key(),
+        //         potion_mint.key(),
+        //         user.key(),
+        //         user.key(),
+        //         price_data_info_key,
+        //         "Potion".to_string(),
+        //         "PTN".to_string(),
+        //         uri.to_string(),
+        //         Some(creators_ptn),
+        //         0, //royalties,
+        //         true,
+        //         true,
+        //     ),
+        //     &[  
+        //         potion_mint_metadata_info.clone(),
+        //         potion_mint.to_account_info(),
+        //         user.to_account_info(),
+        //         user.to_account_info(),
+        //         // vault_creator.clone(),
         //         system_program.clone(),
+        //         rent.clone(),
+        //         token_metadata_program.to_account_info()
         //     ],
-        //     &[&[&"potion".as_bytes(),&mint_info.key.to_bytes(), &[data_bump]]],
+        //     &[&[&"price".as_bytes(), &[price_bump]]],
+        // )?;
+
+        // // let mut tmp1 =  price_data_info.clone();
+        // // tmp1.is_writable=false;
+        // // let mut tmp2 =  mint_metadata_info.clone();
+        // // tmp2.is_writable=false;
+        // invoke_signed(
+        //     &create_master_edition(
+        //         spl_token_metadata::id(), 
+        //         potion_master_edition.key(),
+        //         potion_mint.key(),
+        //         price_data_info_key,
+        //         user.key(),
+        //         potion_mint_metadata_info.key(),
+        //         user.key(),
+        //         Some(0),
+        //     ),
+        //     &[  
+        //         potion_master_edition.clone().to_account_info(),
+        //         potion_mint.clone().to_account_info(),
+        //         // price_data_info.clone().to_account_info(),
+        //         user.clone().to_account_info(),
+        //         user.clone().to_account_info(),
+        //         potion_mint_metadata_info.clone().to_account_info(),
+        //         potion.clone().to_account_info(),
+        //         system_program.clone(),
+        //         rent.clone(),
+        //         token_metadata_program.to_account_info()
+        //     ],
+        //     &[&[&"price".as_bytes(), &[price_bump]]],
         // )?;
 
         // invoke_signed(
-        //     &system_instruction::assign(data_account_info.key, program_id),
-        //     &[
-        //         data_account_info.clone(),
-        //         system_program.clone(),
+        //     &update_metadata_accounts(
+        //         spl_token_metadata::id(), 
+        //         potion_mint_metadata_info.key(),
+        //         price_data_info_key,
+        //         None,
+        //         None,
+        //         Some(true),
+        //     ),
+        //     &[  
+        //         potion_mint_metadata_info.clone().to_account_info(),
+        //         // price_data_info.clone(),
+        //         token_metadata_program.to_account_info()
         //     ],
-        //     &[&[&"potion".as_bytes(),&mint_info.key.to_bytes(), &[data_bump]]],
+        //     &[&[&"price".as_bytes(), &[price_bump]]],
         // )?;
-
-        let nft_1_key = *ctx.accounts.nft_1.key;
-        let nft_2_key = *ctx.accounts.nft_2.key;
-        potion.authority = authority;
-        potion.nft1 = nft_1_key;
-        potion.nft2 = nft_2_key;
-        potion.created_timestamp = timestamp;
-
-        nft_1_metadata.authority = authority;
-        nft_1_metadata.nft = nft_1_key;
-        nft_1_metadata.last_bred_timestamp = timestamp;
-        nft_2_metadata.authority = authority;
-        nft_2_metadata.nft = nft_2_key;
-        nft_2_metadata.last_bred_timestamp = timestamp;
-
-        /*
-        Burn $BAPE after minting potion
-        */
-        let burn_ctx = CpiContext::new(
-            token_program.clone(),
-            anchor_spl::token::Burn {
-                to: token_user_account.to_account_info(),
-                mint: token_mint,
-                authority: user.to_account_info(),
-            }
-        );
-        anchor_spl::token::burn(burn_ctx, burn_price)
-            .expect("burn failed.");
-
-        /* 
-        Mint new NFT for potion
-        */
-        // let mut tmp = user.clone();
-        // tmp.is_writable=false;
-        // TODO: literally no idea what this is, copied it from tokenBreeding2
-        let uri = r"https://bafybeibhsnl5sz32jdfdwfvj4qea3at25wobxenzwjdirrdr2h3i4u4y2a.ipfs.infura-ipfs.io";
-        // TODO: what are these??? Just copied from bored ape creators for now...
-        let mut creators_ptn = vec![
-            Creator{
-                address: "7CqaVHL7Wv6RzHoRDH4govgy38uUfj75UVgCLVwrKhus".parse::<Pubkey>().unwrap(),
-                verified: false,
-                share: 100,
-            },
-            Creator{
-                address: "6vHjQxYUwk9DNuJNHfRWSfH1UTuikVayP9h3H4iYW2TD".parse::<Pubkey>().unwrap(),
-                verified: false,
-                share: 0,
-            },
-        ];
-        let price_data_info_key = "7CqaVHL7Wv6RzHoRDH4govgy38uUfj75UVgCLVwrKhus".parse::<Pubkey>().unwrap(); // update authority? *price_data_info.key,
-        let vault_creator = Creator{
-            address: price_data_info_key,
-            verified: true,
-            share: 0,
-        };
-        creators_ptn.insert(0,vault_creator);
-        let (price_address, price_bump) = Pubkey::find_program_address(&[&"price".as_bytes()], &ctx.program_id);
-        invoke_signed(
-            &create_metadata_accounts(
-                spl_token_metadata::id(), 
-                potion_mint_metadata_info.key(),
-                potion_mint.key(),
-                user.key(),
-                user.key(),
-                price_data_info_key,
-                "Potion".to_string(),
-                "PTN".to_string(),
-                uri.to_string(),
-                Some(creators_ptn),
-                0, //royalties,
-                true,
-                true,
-            ),
-            &[  
-                potion_mint_metadata_info.clone(),
-                potion_mint.to_account_info(),
-                user.to_account_info(),
-                user.to_account_info(),
-                // vault_creator.clone(),
-                system_program.clone(),
-                rent.clone(),
-                token_metadata_program.to_account_info()
-            ],
-            &[&[&"price".as_bytes(), &[price_bump]]],
-        )?;
-
-        // let mut tmp1 =  price_data_info.clone();
-        // tmp1.is_writable=false;
-        // let mut tmp2 =  mint_metadata_info.clone();
-        // tmp2.is_writable=false;
-        invoke_signed(
-            &create_master_edition(
-                spl_token_metadata::id(), 
-                potion_master_edition.key(),
-                potion_mint.key(),
-                price_data_info_key,
-                user.key(),
-                potion_mint_metadata_info.key(),
-                user.key(),
-                Some(0),
-            ),
-            &[  
-                potion_master_edition.clone().to_account_info(),
-                potion_mint.clone().to_account_info(),
-                // price_data_info.clone().to_account_info(),
-                user.clone().to_account_info(),
-                user.clone().to_account_info(),
-                potion_mint_metadata_info.clone().to_account_info(),
-                potion.clone().to_account_info(),
-                system_program.clone(),
-                rent.clone(),
-                token_metadata_program.to_account_info()
-            ],
-            &[&[&"price".as_bytes(), &[price_bump]]],
-        )?;
-
-        invoke_signed(
-            &update_metadata_accounts(
-                spl_token_metadata::id(), 
-                potion_mint_metadata_info.key(),
-                price_data_info_key,
-                None,
-                None,
-                Some(true),
-            ),
-            &[  
-                potion_mint_metadata_info.clone().to_account_info(),
-                // price_data_info.clone(),
-                token_metadata_program.to_account_info()
-            ],
-            &[&[&"price".as_bytes(), &[price_bump]]],
-        )?;
 
         Ok(())
     }
@@ -260,7 +234,7 @@ pub mod breeding_cooldown {
         */
         let user_key = *ctx.accounts.user.key;
         let potion = &mut ctx.accounts.potion;
-        // let nft_1_metadata = &ctx.accounts.nft_1_metadata;
+        // let nft_1_state = &ctx.accounts.nft_1_state;
         // let nft_2_metadata = &ctx.accounts.nft_2_metadata;
 
         // TODO: Token Owner is me
@@ -277,7 +251,7 @@ pub mod breeding_cooldown {
         // TODO: createAssociatedTokenAccountInstruction(potionToken, walletKey, walletKey, potionMint),
         // TODO: Transfer Potion
 
-        if potion.authority != user_key { //|| nft_1_metadata.authority != user_key || nft_2_metadata.authority != user_key {
+        if potion.authority != user_key { //|| nft_1_state.authority != user_key || nft_2_metadata.authority != user_key {
             return Err(ErrorCode::Unauthorized.into());
         }
 
@@ -315,18 +289,18 @@ pub mod breeding_cooldown {
         */
         let user_key = *ctx.accounts.user.key;
         let potion = &mut ctx.accounts.potion;
-        let nft_1_metadata = &ctx.accounts.nft_1_metadata;
+        let nft_1_state = &ctx.accounts.nft_1_state;
         let nft_2_metadata = &ctx.accounts.nft_2_metadata;
         let token_program = &ctx.accounts.token_program;
         let user = &ctx.accounts.user;
         let token_mint = ctx.accounts.token_mint.to_account_info();
 
-        if potion.authority != user_key || nft_1_metadata.authority != user_key || nft_2_metadata.authority != user_key {
+        if potion.authority != user_key || nft_1_state.authority != user_key || nft_2_metadata.authority != user_key {
             return Err(ErrorCode::Unauthorized.into());
         }
 
-        // if !((potion.nft1 == nft_1_metadata.nft && potion.nft2 == nft_2_metadata.nft) ||
-        //     (potion.nft1 == nft_2_metadata.nft && potion.nft2 == nft_1_metadata.nft)) {
+        // if !((potion.nft1 == nft_1_state.nft && potion.nft2 == nft_2_metadata.nft) ||
+        //     (potion.nft1 == nft_2_metadata.nft && potion.nft2 == nft_1_state.nft)) {
         //     return Err(ErrorCode::Mismatch.into());
         // }
         // TODO: do fast reaction (burn more $BAPE?)
@@ -356,6 +330,7 @@ pub mod breeding_cooldown {
 }
 
 #[account]
+#[derive(Default)]
 pub struct Potion {
     pub authority: Pubkey,
     pub nft1: Pubkey,
@@ -364,7 +339,8 @@ pub struct Potion {
 }
 
 #[account]
-pub struct NftMetadata {
+#[derive(Default)]
+pub struct NftState {
     pub authority: Pubkey,
     pub nft: Pubkey,
     pub last_bred_timestamp: u64
@@ -372,31 +348,34 @@ pub struct NftMetadata {
 
 #[derive(Accounts)]
 pub struct CreatePotion<'info> {
-    pub user: Signer<'info>,
+    pub user: AccountInfo<'info>,
     #[account(init, payer = user, space = 8 + 120)]
-    pub potion: Account<'info, Potion>,
-    // TODO: owner = user?
+    pub potion: AccountInfo<'info>,
+    // pub potion: Account<'info, Potion>,
+    // // TODO: owner = user?
     #[account(mut)]
     pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
     #[account(mut)]
     pub token_mint: Account<'info, anchor_spl::token::Mint>,  // $BAPE mint, generic enough for any token though
-    // #[account(mut, owner = user)]
+    // // #[account(mut, owner = user)]
+    // // #[account(mut)]
     // #[account(mut)]
-    #[account(mut)]
-    pub potion_mint: Account<'info, anchor_spl::token::Mint>, // mint for potions
-    #[account(mut)]
-    pub potion_mint_metadata_info: AccountInfo<'info>,
-    #[account(mut)]
-    pub potion_master_edition: AccountInfo<'info>,
-    // TODO: owner is user
+    // pub potion: Account<'info, anchor_spl::token::Mint>, // mint for potions
+    // #[account(mut)]
+    // pub potion_mint_metadata_info: AccountInfo<'info>,
+    // #[account(mut)]
+    // pub potion_master_edition: AccountInfo<'info>,
+
+    // pub nft_mint_authority: AccountInfo<'info>,
     // #[account(owner = *user.key)]
     pub nft_1: AccountInfo<'info>,
-    #[account(init_if_needed, seeds = [b"bapeBreeding".as_ref(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 80)]
-    pub nft_1_metadata: Account<'info, NftMetadata>,
-    // #[account(owner = *user.key)]  -> Might need something else here
+    // TODO: either ignore here, or find program address in rust???
+    #[account(init_if_needed, seeds = [b"bapeBreeding".as_ref(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 80)] // 
+    pub nft_1_state: Account<'info, NftState>,
+    // #[account(owner = *user.key)]
     pub nft_2: AccountInfo<'info>,
-    #[account(init_if_needed, seeds = [b"bapeBreeding".as_ref(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 80)]    // pub nft_2_metadata: Account<'info, NftMetadata>,
-    pub nft_2_metadata: Account<'info, NftMetadata>,
+    // #[account(init_if_needed, seeds = [b"bapeBreeding".as_ref(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 80)]    // pub nft_2_metadata: Account<'info, NftState>,
+    // pub nft_2_metadata: Account<'info, NftState>,
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
     pub token_metadata_program: AccountInfo<'info>,
@@ -413,10 +392,10 @@ pub struct React<'info> {
     // don't need this
     // pub nft_1: AccountInfo<'info>,
     // #[account(seeds = [b"bapeBreeding".as_ref(), nft_1.key.as_ref()], bump)] 
-    // pub nft_1_metadata: Account<'info, NftMetadata>,
+    // pub nft_1_state: Account<'info, NftState>,
     // pub nft_2: AccountInfo<'info>,
     // #[account(seeds = [b"bapeBreeding".as_ref(), nft_2.key.as_ref()], bump)] 
-    // pub nft_2_metadata: Account<'info, NftMetadata>,
+    // pub nft_2_metadata: Account<'info, NftState>,
 
     pub baby_mint: AccountInfo<'info>, // mint for baby
     pub baby_nft: AccountInfo<'info>,
@@ -430,10 +409,10 @@ pub struct FastReact<'info> {
 
     pub nft_1: AccountInfo<'info>,
     #[account(seeds = [b"bapeBreeding".as_ref(), nft_1.key.as_ref()], bump)] 
-    pub nft_1_metadata: Account<'info, NftMetadata>,
+    pub nft_1_state: Account<'info, NftState>,
     pub nft_2: AccountInfo<'info>,
     #[account(seeds = [b"bapeBreeding".as_ref(), nft_2.key.as_ref()], bump)] 
-    pub nft_2_metadata: Account<'info, NftMetadata>,
+    pub nft_2_metadata: Account<'info, NftState>,
 
     #[account(mut)]
     pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
