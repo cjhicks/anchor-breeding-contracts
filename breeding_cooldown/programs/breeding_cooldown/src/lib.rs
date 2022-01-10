@@ -358,9 +358,9 @@ pub struct NftMetadata {
 #[derive(Accounts)]
 pub struct CreatePotion<'info> {
     pub user: Signer<'info>,
-    #[account(init, payer = user, space = 8 + 8)]
+    #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
-    #[account(init, payer = user, space = 8 + 120, seeds = [b"bapeBreedingTest6".as_ref(), potion_mint.key.as_ref()], bump)]
+    #[account(init, payer = user, space = 8 + 120, seeds = [b"bapeBreedingTest8".as_ref(), potion_mint.key.as_ref()], bump)]
     pub potion_state: Account<'info, PotionState>,
     #[account(mut)]
     pub potion_mint_metadata: AccountInfo<'info>,
@@ -383,12 +383,12 @@ pub struct CreatePotion<'info> {
     // constraint= config.to_account_info().owner
     // #[account(owner = token_metadata_program, seeds = [b"metadata".as_ref(), token_metadata_program.key.as_ref(), nft_1.key.as_ref()], bump)]
     // pub nft_1_metadata: Account<'info, NftMetadata>,
-    #[account(init_if_needed, seeds = [b"bapeBreedingTest6".as_ref(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 80)]
+    #[account(init_if_needed, seeds = [b"bapeBreedingTest8".as_ref(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 80)]
     pub nft_1_state: Account<'info, NftState>,
 
     // #[account(owner = *user.key)]
     pub nft_2: AccountInfo<'info>,
-    #[account(init_if_needed, seeds = [b"bapeBreedingTest6".as_ref(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 80)]
+    #[account(init_if_needed, seeds = [b"bapeBreedingTest8".as_ref(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 80)]
     pub nft_2_state: Account<'info, NftState>,
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
