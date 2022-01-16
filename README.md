@@ -24,12 +24,10 @@ BROWSER=firefox npm start # or whatever browser you want to debug with
 ## Current Issues
 
 This is the folliwing error I currently get:
-```
-Transaction simulation failed: Error processing Instruction 4: Program failed to complete 
+```Transaction simulation failed: Error processing Instruction 4: Cross-program invocation with unauthorized signer or writable account 
     Program 11111111111111111111111111111111 invoke [1]
     Program 11111111111111111111111111111111 success
     Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]
-
     Program log: Instruction: InitializeMint
     Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 2390 of 200000 compute units
     Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
@@ -43,25 +41,31 @@ Transaction simulation failed: Error processing Instruction 4: Program failed to
     Program log: Assign the associated token account to the SPL Token program
     Program 11111111111111111111111111111111 invoke [2]
     Program 11111111111111111111111111111111 success
-
     Program log: Initialize the associated token account
     Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]
-
     Program log: Instruction: InitializeAccount
-    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 3449 of 177047 compute units
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 3449 of 171989 compute units
     Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
-    Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 27051 of 200000 compute units
+    Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 32109 of 200000 compute units
     Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success
     Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]
-
     Program log: Instruction: MintTo
     Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 2879 of 200000 compute units
     Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
-
     Program CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD invoke [1]
-    Program CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD consumed 3609 of 200000 compute units
-    Program failed to complete: Access violation in stack frame 3 at address 0x200003f40 of size 8 by instruction #9931
-    Program CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD failed: Program failed to complete index.js:1
+    Program log: Instruction: CreatePotion
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]
+    Program log: Instruction: Burn
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 2766 of 178904 compute units
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
+    Program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s invoke [2]
+    Program log: (Deprecated as of 1.1.0) Instruction: Create Metadata Accounts
+    Program log: Transfer 5616720 lamports to the new account
+    FCoZfkAQm1sqCj9s6LtBus2EDZqYQ4THRPkoM91Uhgeq's writable privilege escalated
+    Program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s consumed 9245 of 169177 compute units
+    Program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s failed: Cross-program invocation with unauthorized signer or writable account
+    Program CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD consumed 40068 of 200000 compute units
+    Program CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD failed: Cross-program invocation with unauthorized signer or writable account index.js:1
 ```
 
 ## Suggestions
