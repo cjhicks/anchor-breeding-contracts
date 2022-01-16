@@ -1,116 +1,62 @@
 # anchor-breeding-contracts
 Repo for our custom breeding contracts using https://github.com/project-serum/anchor
 
-## Quickstart
+## Testing in Devnet
 ```bash
-cd breeding_cooldown
-
-# TODO: create tokens
-# TODO: push these into constants
-
-# # Create fake potion token mint
-# spl-token create-token --decimals 0
-# # output: 29oqZtZxzytxuSPHVB3GaFRXR9GtEZbsdp7rFd4JsTrM
-
-# # # Create Potion account
-# spl-token create-account 29oqZtZxzytxuSPHVB3GaFRXR9GtEZbsdp7rFd4JsTrM
-# # output: A1K4uQQYhj4api5TjrZbeNPB4SE7edHjKG6A4mQGDxHM
-
-# # Mint potions
-# spl-token mint 29oqZtZxzytxuSPHVB3GaFRXR9GtEZbsdp7rFd4JsTrM 100
-# # Output: Minting 100 tokens...
-
-
-# Create fake $BAPE token mint
-spl-token create-token --decimals 0
-# output: EERuT3sK9ce5QZrQ9TsrVZXpe65JqhXh4xuAjpXPbLXD
-
-# $BAPE User Account
-spl-token create-account EERuT3sK9ce5QZrQ9TsrVZXpe65JqhXh4xuAjpXPbLXD
-# output: 6V4KfqAdedKWmGBbxU8DUqoP42fKqzxnSbQ6rxiuAiV
-
-spl-token mint EERuT3sK9ce5QZrQ9TsrVZXpe65JqhXh4xuAjpXPbLXD 1000
-# Output: Minting 1000 tokens...
-
-anchor build
-anchor test
-```
-
-## Hello World Rust example
-
-### Create project:
-```bash
-cargo new hello_world
-
-# Output: Created binary (application) `hello_world` package
-```
-
-Should see the main fn in `hello_world/src/main.rs`
-```rust
-fn main() {
-    println!("Hello, world!");
-}
-```
-
-Manifest (`hello_world/cargo.toml`) should look like this:
-```
-[package]
-name = "hello_world"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-```
-
-### Compile and Run:
-```bash
-cd hello_world
-
-cargo build
-
-cargo run
-
-# output: Hello, world!
-```
-
-## Anchor Hello World example
-
-### Create Project:
-```
-anchor init hello_world
-```
-
-You should see an initialize instruction in `hello_world/programs/hello_world/src/lib.rs`
-```rust
-use anchor_lang::prelude::*;
-
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
-
-#[program]
-pub mod hello_world {
-    use super::*;
-    pub fn initialize(ctx: Context<Initialize>) -> ProgramResult {
-        Ok(())
-    }
-}
-
-#[derive(Accounts)]
-pub struct Initialize {}
-```
-
-### Compile and Test:
-```bash
-cd hello_world
-
 anchor build
 
-anchor test
+anchor deploy
+# Program Id: CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD
 
-# output: ✔ Is initialized! (401ms)
+# Note: ProgramID needs to match line 15 of lib.rs, also needs to batch BREEDING_PROGRAM_ID in breeding.ts of front-end
+
+anchor idl upgrade -f ./target/idl/breeding_cooldown.json CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD
+# use same program ID from above here to deploy the IDL
+
+# from frontend:
+BROWSER=firefox npm start # or whatever browser you want to debug with
+
 ```
 
-Full CLI (for deploying, upgrading, etc) available at https://project-serum.github.io/anchor/cli/commands.html
+## Current Issues
 
+This is the folliwing error I currently get:
+```
+Transaction simulation failed: Error processing Instruction 4: Program failed to complete 
+    Program 11111111111111111111111111111111 invoke [1]
+    Program 11111111111111111111111111111111 success
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]
 
+    Program log: Instruction: InitializeMint
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 2390 of 200000 compute units
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
+    Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]
+    Program log: Transfer 2039280 lamports to the associated token account
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program log: Allocate space for the associated token account
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program log: Assign the associated token account to the SPL Token program
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+
+    Program log: Initialize the associated token account
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]
+
+    Program log: Instruction: InitializeAccount
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 3449 of 177047 compute units
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
+    Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 27051 of 200000 compute units
+    Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]
+
+    Program log: Instruction: MintTo
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 2879 of 200000 compute units
+    Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
+
+    Program CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD invoke [1]
+    Program CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD consumed 3609 of 200000 compute units
+    Program failed to complete: Access violation in stack frame 3 at address 0x200003f40 of size 8 by instruction #9931
+    Program CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD failed: Program failed to complete index.js:1
+​```
