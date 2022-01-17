@@ -1,8 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl;
 use solana_program::{
-    sysvar::{clock::Clock, self},
-    system_instruction
+    sysvar::{clock::Clock}
 };
 use solana_program::program::{invoke_signed, invoke};
 #[allow(unused_imports)]
@@ -138,13 +137,14 @@ pub mod breeding_cooldown {
                 share: 100,
             },
         ];
+
         let create_metadata_ix = &create_metadata_accounts(    
-            token_metadata_program.key(),// spl_token_metadata::id(), 
-            potion_mint_metadata.key(),
-            potion_mint.key(),
-            user.key(),
-            user.key(),
-            user.key(),
+            *token_metadata_program.key,// spl_token_metadata::id(), 
+            *potion_mint_metadata.key,
+            *potion_mint.key,
+            *user.key,
+            *user.key,
+            *potion_creator.key,
             "Potion".to_string(),
             "PTN".to_string(),
             uri.to_string(),
@@ -155,20 +155,23 @@ pub mod breeding_cooldown {
         );
 
         // fine until here
-        invoke_signed( // 
+        // let mut temp_creator = potion_creator.clone();
+        // temp_creator.is_signer = true;
+        // temp_creator.is_writable = false;
+        invoke_signed(
             create_metadata_ix,
             &[
                 potion_mint_metadata.clone(),
-                potion_mint.to_account_info(),
-                user.to_account_info(),
-                potion_creator.to_account_info(),
-                other_creator.to_account_info(),
-                token_program.to_account_info(),
-                token_metadata_program.to_account_info(),
+                potion_mint.to_account_info().clone(),
+                user.to_account_info().clone(), //tmp.clone(),
+                potion_creator.clone(), //potion_creator.to_account_info().clone(),
+                token_program.to_account_info().clone(),
                 system_program.clone(),
-                rent.to_account_info()
+                rent.to_account_info().clone(),
+                token_metadata_program.to_account_info().clone()
             ],
-            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]],
+            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
+            // &[&[b"metadata", token_metadata_program.key().as_ref(), potion_mint.key().as_ref()]],
         ).expect("create_metadata_accounts failed.");
 
         // invoke_signed(
@@ -360,9 +363,10 @@ pub struct NftMetadata {
 #[derive(Accounts)]
 #[instruction(creator_bump: u8)]
 pub struct CreatePotion<'info> {
+    #[account(mut)]
     pub user: Signer<'info>,
     #[account(mut)]
-    pub potion_mint: Signer<'info>,
+    pub potion_mint: AccountInfo<'info>,
     // #[account(init, payer = user, space = 8 + 120, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump)]
     // pub potion_state: Account<'info, PotionState>,
     #[account(mut, seeds = [PREFIX.as_ref(), PREFIX_POTION.as_ref()], bump=creator_bump)]
