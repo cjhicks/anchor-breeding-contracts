@@ -155,9 +155,9 @@ pub mod breeding_cooldown {
         );
 
         // fine until here
-        // let mut temp_creator = potion_creator.clone();
-        // temp_creator.is_signer = true;
-        // temp_creator.is_writable = false;
+        let mut temp_creator = potion_creator.clone();
+        temp_creator.is_signer = true;
+        temp_creator.is_writable = true;
         invoke_signed(
             create_metadata_ix,
             &[
