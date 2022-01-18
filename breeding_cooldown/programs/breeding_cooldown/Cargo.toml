@@ -10,14 +10,10 @@ name = "breeding_cooldown"
 
 [features]
 no-entrypoint = []
-no-idl = []
-no-log-ix-name = []
-cpi = ["no-entrypoint"]
-default = []
 
 [dependencies]
 anchor-lang = "0.19.0"
 anchor-spl = "0.19.0"
 spl-token = { version = "3.2.0", features = [ "no-entrypoint" ] }
 spl-token-metadata = { version = "0.0.1", features = [ "no-entrypoint" ] }
-solana-program = "1.8.0"
+solana-program = "1.8.12"
