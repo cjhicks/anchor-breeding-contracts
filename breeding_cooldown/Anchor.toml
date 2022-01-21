@@ -1,8 +1,6 @@
 [programs.devnet]
-breeding_cooldown = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
-
-# [registry]
-# url = "https://anchor.projectserum.com"
+breeding_cooldown = "Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y"
+breeding_state = "G23nNQ3tMzXaT4SQecJfW6JSwuMhsBruU9iZvhPFeehu"
 
 [provider]
 cluster = "devnet"
