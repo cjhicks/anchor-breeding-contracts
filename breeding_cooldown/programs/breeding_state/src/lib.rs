@@ -50,7 +50,7 @@ pub struct CreatePotionState<'info> {
     pub user: Signer<'info>,
     #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
-    #[account(init, signer, payer = user, space = 8 + 120, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump)]
+    #[account(init, payer = user, space = 8 + 120, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump)]
     pub potion_state: Account<'info, PotionState>,
 
     // TODO: come back for validations
