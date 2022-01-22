@@ -39,6 +39,12 @@ pub mod breeding_cooldown {
         let system_program = &ctx.accounts.system_program.to_account_info();
         let rent = &ctx.accounts.rent;
 
+        // check global potion count
+        let potion_count = &mut ctx.accounts.potion_count;
+        if potion_count.count >= (3333 as u16) {
+            return Err(ErrorCode::NoMorePotions.into())
+        }
+
         // check token is $bape - change for prod
         let bape_mint = "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap();
         if token_mint.key() != bape_mint {
@@ -117,11 +123,11 @@ pub mod breeding_cooldown {
             *user.key,
             *user.key,
             *potion_creator.key,
-            "Potion".to_string(),
-            "PTN".to_string(),
+            "Protocol #367".to_string(),
+            "BASE".to_string(),
             uri.to_string(),
             Some(creators_ptn),
-            0, //royalties,
+            500, //royalties,
             true,
             true, // false?
         );
@@ -299,6 +305,8 @@ pub mod breeding_cooldown {
 pub struct CreatePotion<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
+    #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 20)]
+    pub potion_count: Account<'info, PotionCount>,
     #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
     #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 80)]
@@ -340,6 +348,8 @@ pub struct CreatePotion<'info> {
 
 #[error]
 pub enum ErrorCode {
+    #[msg("No more potions available.")]
+    NoMorePotions,
     #[msg("Used wrong token.")]
     WrongToken,
     #[msg("Used same NFT's.")]
@@ -443,4 +453,10 @@ pub struct PotionState {
 #[derive(Default)]
 pub struct NftState {
     pub last_bred_timestamp: u64
+}
+
+#[account]
+#[derive(Default)]
+pub struct PotionCount {
+    pub count: u16
 }
