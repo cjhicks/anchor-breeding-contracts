@@ -1,8 +1,14 @@
 
 use anchor_lang::prelude::*;
 use anchor_spl;
-use breeding_state::program::BreedingState;
-use breeding_state::cpi::accounts::{UpdateState, MintPotion};
+use solana_program::{sysvar};
+use solana_program::program::{invoke_signed};
+use spl_token_metadata::{
+        instruction::{update_metadata_accounts, CreateMetadataAccountArgs, CreateMasterEditionArgs, MetadataInstruction}, //create_metadata_accounts
+        state::{Creator, Data},
+};
+use solana_program::instruction::{Instruction,AccountMeta};
+
 
 declare_id!("Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y");
 
@@ -22,7 +28,6 @@ pub mod breeding_cooldown {
         let potion_token = &ctx.accounts.potion_token;
         let potion_creator = &ctx.accounts.potion_creator;
         let other_creator = &ctx.accounts.other_creator;
-        let token_user_account = &ctx.accounts.token_user_account;
         let nft_1 = &ctx.accounts.nft_1;
         let nft_2 = &ctx.accounts.nft_2;
 
@@ -57,6 +62,15 @@ pub mod breeding_cooldown {
             return Err(ErrorCode::NftUsedTooSoon.into());
         }
 
+        // check if we have enough $BAPE before continuing
+        let token_user_account = &ctx.accounts.token_user_account;
+        let decimals = 9;
+        let base: u64 = 10;
+        let burn_price = 500 * base.pow(decimals);
+        if token_user_account.amount < burn_price {
+            return Err(ErrorCode::InsufficientFunds.into())
+        }
+
         // set state
         let potion_state = &mut ctx.accounts.potion_state;
         potion_state.nft1 = *ctx.accounts.nft_1.key;
@@ -65,42 +79,108 @@ pub mod breeding_cooldown {
         nft_1_state.last_bred_timestamp = timestamp;
         nft_2_state.last_bred_timestamp = timestamp;
 
-        // TODO: invoke breeding_state
-        let breeding_state = &ctx.accounts.breeding_state.to_account_info();
-        let update_state_accounts = UpdateState {
-            user: user.to_account_info(),
-            token_user_account: token_user_account.clone(),
-            token_mint: token_mint.clone(),
-            token_program: token_program.clone(),
-            system_program: system_program.clone(),
-            rent: rent.to_account_info()
-        };
-        let cpi_ctx = CpiContext::new(
-            breeding_state.clone(),
-            update_state_accounts
+        /*
+        Burn $BAPE after minting potion
+        */
+        let burn_ctx = CpiContext::new(
+            token_program.clone(),
+            anchor_spl::token::Burn {
+                to: token_user_account.to_account_info(),
+                mint: token_mint,
+                authority: user.to_account_info(),
+            }
         );
-        breeding_state::cpi::update_state(cpi_ctx)
-            .expect("Set Breeding State failed");
+        anchor_spl::token::burn(burn_ctx, burn_price)
+            .expect("burn failed.");
 
-        let mint_potion_accounts = MintPotion {
-            user: user.to_account_info(),
-            potion_mint: potion_mint.clone(),
-            potion_creator: potion_creator.clone(),
-            other_creator: other_creator.clone(),
-            potion_mint_metadata: potion_mint_metadata.clone(),
-            potion_master_edition: potion_master_edition.clone(),
-            potion_token: potion_token.clone(),
-            token_program: token_program.clone(),
-            token_metadata_program: token_metadata_program.clone(),
-            system_program: system_program.clone(),
-            rent: rent.to_account_info()
-        };
-        let cpi_ctx = CpiContext::new(
-            breeding_state.clone(),
-            mint_potion_accounts
+        /* 
+        Mint new NFT for potion
+        */
+        let uri = r"https://arweave.net/OEbN9FS8F4_P7nj_WoWoXuaour_oN4BVSZRbxrXTStc";
+        let creators_ptn = vec![
+            Creator{
+                address: potion_creator.key(),
+                verified: true,
+                share: 0,
+            },
+            Creator{
+                address: other_creator.key(),
+                verified: false,
+                share: 100,
+            },
+        ];
+
+        let create_metadata_ix = &create_metadata_accounts(    
+            *token_metadata_program.key,// spl_token_metadata::id(), 
+            *potion_mint_metadata.key,
+            *potion_mint.key,
+            *user.key,
+            *user.key,
+            *potion_creator.key,
+            "Potion".to_string(),
+            "PTN".to_string(),
+            uri.to_string(),
+            Some(creators_ptn),
+            0, //royalties,
+            true,
+            true, // false?
         );
-        breeding_state::cpi::mint_potion(cpi_ctx, creator_bump)
-            .expect("Minting Potion failed");
+        invoke_signed(
+            create_metadata_ix,
+            &[
+                potion_mint_metadata.clone(),
+                potion_mint.to_account_info().clone(),
+                user.to_account_info().clone(),
+                potion_creator.clone(),
+                token_program.to_account_info().clone(),
+                system_program.clone(),
+                rent.to_account_info().clone(),
+                token_metadata_program.to_account_info().clone()
+            ],
+            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
+        ).expect("create_metadata_accounts failed.");
+
+        invoke_signed(
+            &create_master_edition(
+                token_metadata_program.key(), 
+                potion_master_edition.key(),
+                potion_mint.key(),
+                potion_creator.key(),
+                user.key(),
+                potion_mint_metadata.key(),
+                user.key(),
+                Some(0),
+            ),
+            &[  
+                potion_master_edition.clone().to_account_info(),
+                potion_mint.clone().to_account_info(),
+                potion_creator.clone(),
+                user.clone().to_account_info(),
+                potion_mint_metadata.clone().to_account_info(),
+                potion_token.clone().to_account_info(),
+                system_program.clone(),
+                rent.to_account_info().clone(),
+                token_metadata_program.to_account_info()
+            ],
+            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
+        )?;
+
+        invoke_signed(
+            &update_metadata_accounts(
+                token_metadata_program.key(), 
+                *potion_mint_metadata.key,
+                *potion_creator.key,
+                None,
+                None,
+                Some(true),
+            ),
+            &[  
+                potion_mint_metadata.clone().to_account_info(),
+                potion_creator.clone(),
+                token_metadata_program.to_account_info()
+            ],
+            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
+        )?;
 
         Ok(())
     }
@@ -236,7 +316,7 @@ pub struct CreatePotion<'info> {
 
     // TODO: owner = user?
     #[account(mut)]
-    pub token_user_account: AccountInfo<'info>,  // User's $BAPE account, this token type should match mint account
+    pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
     #[account(mut)]
     pub token_mint: Account<'info, anchor_spl::token::Mint>,  // $BAPE mint, generic enough for any token though
     // #[account(owner = *user.key)]
@@ -250,7 +330,7 @@ pub struct CreatePotion<'info> {
     #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_2_state: Account<'info, NftState>,
 
-    pub breeding_state: Program<'info, BreedingState>,
+    // pub breeding_state: Program<'info, BreedingState>,
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
@@ -268,6 +348,8 @@ pub enum ErrorCode {
     SameNFTs,
     #[msg("This NFT has been used for breeding in the last 10 days.")]
     NftUsedTooSoon,
+    #[msg("User has insufficient funds to complete the transaction.")]
+    InsufficientFunds,
 }
 
 fn get_timestamp() -> u64 {
@@ -277,6 +359,78 @@ fn get_timestamp() -> u64 {
 fn get_breed_min_timestamp(timestamp: u64) -> u64 {
     let seven_days_in_seconds = 7 * 24 * 60 * 60;
     return timestamp - seven_days_in_seconds;
+}
+
+pub fn create_metadata_accounts(
+    program_id: Pubkey,
+    metadata_account: Pubkey,
+    mint: Pubkey,
+    mint_authority: Pubkey,
+    payer: Pubkey,
+    update_authority: Pubkey,
+    name: String,
+    symbol: String,
+    uri: String,
+    creators: Option<Vec<Creator>>,
+    seller_fee_basis_points: u16,
+    update_authority_is_signer: bool,
+    is_mutable: bool,
+) -> Instruction {
+    Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(metadata_account, false),
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new_readonly(mint_authority, true),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(update_authority, update_authority_is_signer),
+            AccountMeta::new_readonly(solana_program::system_program::id(), false),
+            AccountMeta::new_readonly(sysvar::rent::id(), false),
+        ],
+        data: MetadataInstruction::CreateMetadataAccount(CreateMetadataAccountArgs {
+            data: Data {
+                name,
+                symbol,
+                uri,
+                seller_fee_basis_points,
+                creators,
+            },
+            is_mutable,
+        })
+        .try_to_vec()
+        .unwrap(),
+    }
+}
+
+pub fn create_master_edition(
+    program_id: Pubkey,
+    edition: Pubkey,
+    mint: Pubkey,
+    update_authority: Pubkey,
+    mint_authority: Pubkey,
+    metadata: Pubkey,
+    payer: Pubkey,
+    max_supply: Option<u64>,
+) -> Instruction {
+    let accounts = vec![
+        AccountMeta::new(edition, false),
+        AccountMeta::new(mint, false),
+        AccountMeta::new_readonly(update_authority, true),
+        AccountMeta::new_readonly(mint_authority, true),
+        AccountMeta::new(payer, true),
+        AccountMeta::new_readonly(metadata, false),
+        AccountMeta::new_readonly(spl_token::id(), false),
+        AccountMeta::new_readonly(solana_program::system_program::id(), false),
+        AccountMeta::new_readonly(sysvar::rent::id(), false),
+    ];
+
+    Instruction {
+        program_id,
+        accounts,
+        data: MetadataInstruction::CreateMasterEdition(CreateMasterEditionArgs { max_supply })
+            .try_to_vec()
+            .unwrap(),
+    }
 }
 
 #[account]

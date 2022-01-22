@@ -16,9 +16,6 @@ anchor deploy
 # First Time: anchor idl init -f ./target/idl/breeding_cooldown.json Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y
 anchor idl upgrade -f ./target/idl/breeding_cooldown.json Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y
 
-# First Time: anchor idl init -f ./target/idl/breeding_state.json G23nNQ3tMzXaT4SQecJfW6JSwuMhsBruU9iZvhPFeehu
-anchor idl upgrade -f ./target/idl/breeding_state.json G23nNQ3tMzXaT4SQecJfW6JSwuMhsBruU9iZvhPFeehu
-
 # from frontend:
 BROWSER=firefox npm start # or whatever browser you want to debug with
 

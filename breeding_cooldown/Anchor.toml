@@ -1,6 +1,5 @@
 [programs.devnet]
 breeding_cooldown = "Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y"
-breeding_state = "G23nNQ3tMzXaT4SQecJfW6JSwuMhsBruU9iZvhPFeehu"
 
 [provider]
 cluster = "devnet"
