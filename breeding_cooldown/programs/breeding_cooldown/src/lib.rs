@@ -330,8 +330,6 @@ pub struct CreatePotion<'info> {
     #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_2_state: Account<'info, NftState>,
 
-    // pub breeding_state: Program<'info, BreedingState>,
-
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
     // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
