@@ -15,7 +15,4 @@ cpi = ["no-entrypoint"]
 [dependencies]
 anchor-lang = "0.20.1"
 anchor-spl = "0.20.1"
-spl-token = { version = "3.2.0", features = [ "no-entrypoint" ] }
-spl-token-metadata = { version = "0.0.1", features = [ "no-entrypoint" ] }
-solana-program = "1.8.12"
 breeding_state = { path = "../breeding_state", features = ["cpi"] }

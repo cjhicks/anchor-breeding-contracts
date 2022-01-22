@@ -1,15 +1,9 @@
 
 use anchor_lang::prelude::*;
 use anchor_spl;
-use solana_program::{sysvar};
-use solana_program::program::{invoke_signed};
-use spl_token_metadata::{
-        instruction::{update_metadata_accounts, CreateMetadataAccountArgs, CreateMasterEditionArgs, MetadataInstruction}, //create_metadata_accounts
-        state::{Creator, Data},
-};
-use solana_program::instruction::{Instruction,AccountMeta};
 use breeding_state::program::BreedingState;
-use breeding_state::cpi::accounts::CreatePotionState;
+// use breeding_state::{PotionState, NftState};
+use breeding_state::cpi::accounts::{UpdateState, MintPotion};
 
 declare_id!("Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y");
 
@@ -19,7 +13,6 @@ const PREFIX_POTION: &str = "potion";
 #[program]
 pub mod breeding_cooldown {
     use super::*;
-
     /*
     This function is equivalent to breeding an egg: https://explorer.solana.com/tx/g5fg51XveddE1MyU3GsEUpU6e3vUz1BhWNBvye6hBziDZbKsBv4H1UjLEKr1rjLFtABt6YNM6TBBoMzDxtQ5td5
     */
@@ -30,6 +23,9 @@ pub mod breeding_cooldown {
         let potion_token = &ctx.accounts.potion_token;
         let potion_creator = &ctx.accounts.potion_creator;
         let other_creator = &ctx.accounts.other_creator;
+        let token_user_account = &ctx.accounts.token_user_account;
+        let nft_1 = &ctx.accounts.nft_1;
+        let nft_2 = &ctx.accounts.nft_2;
 
         let user = &ctx.accounts.user;
         let token_mint = ctx.accounts.token_mint.to_account_info();
@@ -39,157 +35,51 @@ pub mod breeding_cooldown {
         let system_program = &ctx.accounts.system_program.to_account_info();
         let rent = &ctx.accounts.rent;
 
-        /*
-        Validation
-        */
-        // check token is $bape - change for prod
-        let bape_mint = "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap();
-        if token_mint.key() != bape_mint {
-            return Err(ErrorCode::WrongToken.into())
-        }
-
-        // check NFT's are not same
-        let nft_1 = &ctx.accounts.nft_1;
-        let nft_2 = &ctx.accounts.nft_2;
-        if nft_1.key() == nft_2.key() {
-            return Err(ErrorCode::SameNFTs.into())
-        }
-
-        // Check update authority - change for prod
-        // let update_authority = "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap();
-        // nft_1.data().update_authority
-
-        // // check if we have enough $BAPE before continuing
-        let token_user_account = &ctx.accounts.token_user_account;
-        let decimals = 9;
-        let base: u64 = 10;
-        let burn_price = 500 * base.pow(decimals);
-        if token_user_account.amount < burn_price {
-            return Err(ErrorCode::InsufficientFunds.into())
-        }
-
         // TODO: invoke breeding_state
-        let breeding_state = ctx.accounts.breeding_state.to_account_info();
+        let breeding_state = &ctx.accounts.breeding_state.to_account_info();
         let potion_state = &ctx.accounts.potion_state;
         let nft_1_state = &ctx.accounts.nft_1_state;
         let nft_2_state = &ctx.accounts.nft_2_state;
-        let breeding_state_accounts = CreatePotionState {
+        let update_state_accounts = UpdateState {
             user: user.to_account_info(),
             potion_mint: potion_mint.clone(),
             potion_state: potion_state.to_account_info(),
+            token_user_account: token_user_account.to_account_info(),
+            token_mint: token_mint.clone(),
             nft_1: nft_1.clone(),
             nft_1_state: nft_1_state.to_account_info(),
             nft_2: nft_2.clone(),
             nft_2_state: nft_2_state.to_account_info(),
+            token_program: token_program.clone(),
             system_program: system_program.clone(),
             rent: rent.to_account_info()
         };
-        let cpi_ctx = CpiContext::new(breeding_state, breeding_state_accounts);
-        breeding_state::cpi::create_potion_state(cpi_ctx)
+        let cpi_ctx = CpiContext::new(
+            breeding_state.clone(),
+            update_state_accounts
+        );
+        breeding_state::cpi::update_state(cpi_ctx)
             .expect("Set Breeding State failed");
-        
-        /*
-        Burn $BAPE after minting potion
-        */
-        let burn_ctx = CpiContext::new(
-            token_program.clone(),
-            anchor_spl::token::Burn {
-                to: token_user_account.to_account_info(),
-                mint: token_mint,
-                authority: user.to_account_info(),
-            }
+
+        let mint_potion_accounts = MintPotion {
+            user: user.to_account_info(),
+            potion_mint: potion_mint.clone(),
+            potion_creator: potion_creator.clone(),
+            other_creator: other_creator.clone(),
+            potion_mint_metadata: potion_mint_metadata.clone(),
+            potion_master_edition: potion_master_edition.clone(),
+            potion_token: potion_token.clone(),
+            token_program: token_program.clone(),
+            token_metadata_program: token_metadata_program.clone(),
+            system_program: system_program.clone(),
+            rent: rent.to_account_info()
+        };
+        let cpi_ctx = CpiContext::new(
+            breeding_state.clone(),
+            mint_potion_accounts
         );
-        anchor_spl::token::burn(burn_ctx, burn_price)
-            .expect("burn failed.");
-
-        /* 
-        Mint new NFT for potion
-        */
-        let uri = r"https://bafybeibhsnl5sz32jdfdwfvj4qea3at25wobxenzwjdirrdr2h3i4u4y2a.ipfs.infura-ipfs.io";
-        let creators_ptn = vec![
-            Creator{
-                address: potion_creator.key(),
-                verified: true,
-                share: 0,
-            },
-            Creator{
-                address: other_creator.key(),
-                verified: false,
-                share: 100,
-            },
-        ];
-
-        let create_metadata_ix = &create_metadata_accounts(    
-            *token_metadata_program.key,// spl_token_metadata::id(), 
-            *potion_mint_metadata.key,
-            *potion_mint.key,
-            *user.key,
-            *user.key,
-            *potion_creator.key,
-            "Potion".to_string(),
-            "PTN".to_string(),
-            uri.to_string(),
-            Some(creators_ptn),
-            0, //royalties,
-            true,
-            true, // false?
-        );
-        invoke_signed(
-            create_metadata_ix,
-            &[
-                potion_mint_metadata.clone(),
-                potion_mint.to_account_info().clone(),
-                user.to_account_info().clone(),
-                potion_creator.clone(),
-                token_program.to_account_info().clone(),
-                system_program.clone(),
-                rent.to_account_info().clone(),
-                token_metadata_program.to_account_info().clone()
-            ],
-            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
-        ).expect("create_metadata_accounts failed.");
-
-        invoke_signed(
-            &create_master_edition(
-                token_metadata_program.key(), 
-                potion_master_edition.key(),
-                potion_mint.key(),
-                potion_creator.key(),
-                user.key(),
-                potion_mint_metadata.key(),
-                user.key(),
-                Some(0),
-            ),
-            &[  
-                potion_master_edition.clone().to_account_info(),
-                potion_mint.clone().to_account_info(),
-                potion_creator.clone(),
-                user.clone().to_account_info(),
-                potion_mint_metadata.clone().to_account_info(),
-                potion_token.clone().to_account_info(),
-                system_program.clone(),
-                rent.to_account_info().clone(),
-                token_metadata_program.to_account_info()
-            ],
-            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
-        )?;
-
-        invoke_signed(
-            &update_metadata_accounts(
-                token_metadata_program.key(), 
-                *potion_mint_metadata.key,
-                *potion_creator.key,
-                None,
-                None,
-                Some(true),
-            ),
-            &[  
-                potion_mint_metadata.clone().to_account_info(),
-                potion_creator.clone(),
-                token_metadata_program.to_account_info()
-            ],
-            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
-        )?;
+        breeding_state::cpi::mint_potion(cpi_ctx, creator_bump)
+            .expect("Minting Potion failed");
 
         Ok(())
     }
@@ -303,79 +193,6 @@ pub mod breeding_cooldown {
     // }
 }
 
-
-pub fn create_metadata_accounts(
-    program_id: Pubkey,
-    metadata_account: Pubkey,
-    mint: Pubkey,
-    mint_authority: Pubkey,
-    payer: Pubkey,
-    update_authority: Pubkey,
-    name: String,
-    symbol: String,
-    uri: String,
-    creators: Option<Vec<Creator>>,
-    seller_fee_basis_points: u16,
-    update_authority_is_signer: bool,
-    is_mutable: bool,
-) -> Instruction {
-    Instruction {
-        program_id,
-        accounts: vec![
-            AccountMeta::new(metadata_account, false),
-            AccountMeta::new_readonly(mint, false),
-            AccountMeta::new_readonly(mint_authority, true),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(update_authority, update_authority_is_signer),
-            AccountMeta::new_readonly(solana_program::system_program::id(), false),
-            AccountMeta::new_readonly(sysvar::rent::id(), false),
-        ],
-        data: MetadataInstruction::CreateMetadataAccount(CreateMetadataAccountArgs {
-            data: Data {
-                name,
-                symbol,
-                uri,
-                seller_fee_basis_points,
-                creators,
-            },
-            is_mutable,
-        })
-        .try_to_vec()
-        .unwrap(),
-    }
-}
-
-pub fn create_master_edition(
-    program_id: Pubkey,
-    edition: Pubkey,
-    mint: Pubkey,
-    update_authority: Pubkey,
-    mint_authority: Pubkey,
-    metadata: Pubkey,
-    payer: Pubkey,
-    max_supply: Option<u64>,
-) -> Instruction {
-    let accounts = vec![
-        AccountMeta::new(edition, false),
-        AccountMeta::new(mint, false),
-        AccountMeta::new_readonly(update_authority, true),
-        AccountMeta::new_readonly(mint_authority, true),
-        AccountMeta::new(payer, true),
-        AccountMeta::new_readonly(metadata, false),
-        AccountMeta::new_readonly(spl_token::id(), false),
-        AccountMeta::new_readonly(solana_program::system_program::id(), false),
-        AccountMeta::new_readonly(sysvar::rent::id(), false),
-    ];
-
-    Instruction {
-        program_id,
-        accounts,
-        data: MetadataInstruction::CreateMasterEdition(CreateMasterEditionArgs { max_supply })
-            .try_to_vec()
-            .unwrap(),
-    }
-}
-
 #[derive(Accounts)]
 #[instruction(creator_bump: u8)]
 pub struct CreatePotion<'info> {
@@ -383,7 +200,7 @@ pub struct CreatePotion<'info> {
     pub user: Signer<'info>,
     #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
-    #[account(mut, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump)]
+    #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 80)]
     pub potion_state: AccountInfo<'info>,
     #[account(mut, seeds = [PREFIX.as_ref(), PREFIX_POTION.as_ref()], bump=creator_bump)]
     pub potion_creator: AccountInfo<'info>,
@@ -407,11 +224,11 @@ pub struct CreatePotion<'info> {
     // constraint= config.to_account_info().owner
     // #[account(owner = token_metadata_program, seeds = [b"metadata".as_ref(), token_metadata_program.key.as_ref(), nft_1.key.as_ref()], bump)]
     // pub nft_1_metadata: Account<'info, NftMetadata>,
-    #[account(mut, seeds = [PREFIX.as_bytes(), nft_1.key.as_ref()], bump)]
+    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 80)]
     pub nft_1_state: AccountInfo<'info>,
     // // #[account(owner = *user.key)]
     pub nft_2: AccountInfo<'info>,
-    #[account(mut, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump)]
+    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 80)]
     pub nft_2_state: AccountInfo<'info>,
 
     pub breeding_state: Program<'info, BreedingState>,
@@ -421,7 +238,6 @@ pub struct CreatePotion<'info> {
     // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
     pub token_metadata_program: AccountInfo<'info>,
     pub system_program: Program<'info, System>, // this is just anchor.web3.SystemProgram.programId from frontend
-    // pub rent: AccountInfo<'info>, // this just anchor.web3.SYSVAR_RENT_PUBKEY from frontend
     pub rent: Sysvar<'info, Rent>,
 }
 
