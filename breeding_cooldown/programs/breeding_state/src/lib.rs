@@ -202,7 +202,6 @@ pub mod breeding_state {
 }
 
 #[derive(Accounts)]
-#[instruction(creator_bump: u8)]
 pub struct UpdateState<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -221,11 +220,11 @@ pub struct UpdateState<'info> {
     // #[account(owner = *user.key)]
     pub nft_1: AccountInfo<'info>,
     // constraint= config.to_account_info().owner
-    #[account(mut, seeds = [PREFIX.as_bytes(), nft_1.key.as_ref()], bump)]
+    #[account(mut)]  //, seeds = [PREFIX.as_bytes(), nft_1.key.as_ref()], bump)]
     pub nft_1_state: Account<'info, NftState>,
     // #[account(owner = *user.key)]
     pub nft_2: AccountInfo<'info>,
-    #[account(mut, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump)]
+    #[account(mut)] //, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump)]
     pub nft_2_state: Account<'info, NftState>,
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
