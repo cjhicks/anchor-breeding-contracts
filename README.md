@@ -13,8 +13,8 @@ anchor deploy
 
 # Note: ProgramID needs to match line 15 of lib.rs, also needs to batch BREEDING_PROGRAM_ID in breeding.ts of front-end
 
-anchor idl upgrade -f ./target/idl/breeding_cooldown.json CT6NTh1hRHykX69Qm5oAovPPrxeJV43hqmUA2MhmaorD
-# use same program ID from above here to deploy the IDL
+# First Time: anchor idl init -f ./target/idl/breeding_cooldown.json Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y
+anchor idl upgrade -f ./target/idl/breeding_cooldown.json Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y
 
 # from frontend:
 BROWSER=firefox npm start # or whatever browser you want to debug with
