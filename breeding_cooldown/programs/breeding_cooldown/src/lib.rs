@@ -2,7 +2,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl;
 use breeding_state::program::BreedingState;
-// use breeding_state::{PotionState, NftState};
 use breeding_state::cpi::accounts::{UpdateState, MintPotion};
 
 declare_id!("Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y");
@@ -35,21 +34,43 @@ pub mod breeding_cooldown {
         let system_program = &ctx.accounts.system_program.to_account_info();
         let rent = &ctx.accounts.rent;
 
+        // check token is $bape - change for prod
+        let bape_mint = "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap();
+        if token_mint.key() != bape_mint {
+            return Err(ErrorCode::WrongToken.into())
+        }
+
+        // check NFT's are not same
+        if nft_1.key() == nft_2.key() {
+            return Err(ErrorCode::SameNFTs.into())
+        }
+
+        // // check if 7 days since last breeding
+        let timestamp = get_timestamp();
+        let breed_min_timestamp = get_breed_min_timestamp(timestamp);
+        let nft_1_state = &mut ctx.accounts.nft_1_state;
+        if nft_1_state.last_bred_timestamp > breed_min_timestamp {
+            return Err(ErrorCode::NftUsedTooSoon.into());
+        }
+        let nft_2_state = &mut ctx.accounts.nft_2_state;
+        if nft_2_state.last_bred_timestamp > breed_min_timestamp {
+            return Err(ErrorCode::NftUsedTooSoon.into());
+        }
+
+        // set state
+        let potion_state = &mut ctx.accounts.potion_state;
+        potion_state.nft1 = *ctx.accounts.nft_1.key;
+        potion_state.nft2 = *ctx.accounts.nft_2.key;
+        potion_state.created_timestamp = timestamp;
+        nft_1_state.last_bred_timestamp = timestamp;
+        nft_2_state.last_bred_timestamp = timestamp;
+
         // TODO: invoke breeding_state
         let breeding_state = &ctx.accounts.breeding_state.to_account_info();
-        let potion_state = &ctx.accounts.potion_state;
-        let nft_1_state = &ctx.accounts.nft_1_state;
-        let nft_2_state = &ctx.accounts.nft_2_state;
         let update_state_accounts = UpdateState {
             user: user.to_account_info(),
-            potion_mint: potion_mint.clone(),
-            potion_state: potion_state.to_account_info(),
-            token_user_account: token_user_account.to_account_info(),
+            token_user_account: token_user_account.clone(),
             token_mint: token_mint.clone(),
-            nft_1: nft_1.clone(),
-            nft_1_state: nft_1_state.to_account_info(),
-            nft_2: nft_2.clone(),
-            nft_2_state: nft_2_state.to_account_info(),
             token_program: token_program.clone(),
             system_program: system_program.clone(),
             rent: rent.to_account_info()
@@ -201,7 +222,7 @@ pub struct CreatePotion<'info> {
     #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
     #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 80)]
-    pub potion_state: AccountInfo<'info>,
+    pub potion_state: Account<'info, PotionState>,
     #[account(mut, seeds = [PREFIX.as_ref(), PREFIX_POTION.as_ref()], bump=creator_bump)]
     pub potion_creator: AccountInfo<'info>,
     #[account(mut)]
@@ -215,21 +236,19 @@ pub struct CreatePotion<'info> {
 
     // TODO: owner = user?
     #[account(mut)]
-    pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
+    pub token_user_account: AccountInfo<'info>,  // User's $BAPE account, this token type should match mint account
     #[account(mut)]
     pub token_mint: Account<'info, anchor_spl::token::Mint>,  // $BAPE mint, generic enough for any token though
     // #[account(owner = *user.key)]
     pub nft_1: AccountInfo<'info>,
     // TODO: come back for validations
     // constraint= config.to_account_info().owner
-    // #[account(owner = token_metadata_program, seeds = [b"metadata".as_ref(), token_metadata_program.key.as_ref(), nft_1.key.as_ref()], bump)]
-    // pub nft_1_metadata: Account<'info, NftMetadata>,
-    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 80)]
-    pub nft_1_state: AccountInfo<'info>,
+    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
+    pub nft_1_state: Account<'info, NftState>,
     // // #[account(owner = *user.key)]
     pub nft_2: AccountInfo<'info>,
-    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 80)]
-    pub nft_2_state: AccountInfo<'info>,
+    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
+    pub nft_2_state: Account<'info, NftState>,
 
     pub breeding_state: Program<'info, BreedingState>,
 
@@ -243,16 +262,33 @@ pub struct CreatePotion<'info> {
 
 #[error]
 pub enum ErrorCode {
-    #[msg("This potion has not reached its cooldown period.")]
-    CooldownNotReached,
-    #[msg("User has insufficient funds to complete the transaction.")]
-    InsufficientFunds,
-    #[msg("User is not authorized to complete the transaction.")]
-    Unauthorized,
-    #[msg("NFT's do not match token provided.")]
-    Mismatch,
     #[msg("Used wrong token.")]
     WrongToken,
     #[msg("Used same NFT's.")]
     SameNFTs,
+    #[msg("This NFT has been used for breeding in the last 10 days.")]
+    NftUsedTooSoon,
+}
+
+fn get_timestamp() -> u64 {
+    return Clock::get().unwrap().unix_timestamp as u64;
+}
+
+fn get_breed_min_timestamp(timestamp: u64) -> u64 {
+    let seven_days_in_seconds = 7 * 24 * 60 * 60;
+    return timestamp - seven_days_in_seconds;
+}
+
+#[account]
+#[derive(Default)]
+pub struct PotionState {
+    pub nft1: Pubkey,
+    pub nft2: Pubkey,
+    pub created_timestamp: u64
+}
+
+#[account]
+#[derive(Default)]
+pub struct NftState {
+    pub last_bred_timestamp: u64
 }

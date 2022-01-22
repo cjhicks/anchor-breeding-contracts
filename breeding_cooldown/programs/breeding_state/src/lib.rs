@@ -20,24 +20,7 @@ pub mod breeding_state {
     pub fn update_state(ctx: Context<UpdateState>) -> ProgramResult {
         let user = &ctx.accounts.user;
         let token_mint = ctx.accounts.token_mint.to_account_info();
-
         let token_program = &ctx.accounts.token_program;
-
-        /*
-        Validation
-        */
-        // check token is $bape - change for prod
-        let bape_mint = "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap();
-        if token_mint.key() != bape_mint {
-            return Err(ErrorCode::WrongToken.into())
-        }
-
-        // check NFT's are not same
-        let nft_1 = &ctx.accounts.nft_1;
-        let nft_2 = &ctx.accounts.nft_2;
-        if nft_1.key() == nft_2.key() {
-            return Err(ErrorCode::SameNFTs.into())
-        }
 
         // check if we have enough $BAPE before continuing
         let token_user_account = &ctx.accounts.token_user_account;
@@ -47,34 +30,6 @@ pub mod breeding_state {
         if token_user_account.amount < burn_price {
             return Err(ErrorCode::InsufficientFunds.into())
         }
-
-        // check if 7 days since last breeding
-        let timestamp = get_timestamp();
-        let breed_min_timestamp = get_breed_min_timestamp(timestamp);
-        let nft_1_state = &mut ctx.accounts.nft_1_state;
-        if nft_1_state.last_bred_timestamp > breed_min_timestamp {
-            return Err(ErrorCode::NftUsedTooSoon.into());
-        }
-        let nft_2_state = &mut ctx.accounts.nft_2_state;
-        if nft_2_state.last_bred_timestamp > breed_min_timestamp {
-            return Err(ErrorCode::NftUsedTooSoon.into());
-        }
-
-        // set state
-        let potion_state = &mut ctx.accounts.potion_state;
-        let nft_1_key = *ctx.accounts.nft_1.key;
-        let nft_2_key = *ctx.accounts.nft_2.key;
-        potion_state.authority = *user.key;
-        potion_state.nft1 = nft_1_key;
-        potion_state.nft2 = nft_2_key;
-        potion_state.created_timestamp = timestamp;
-
-        nft_1_state.authority = *user.key;
-        nft_1_state.nft = nft_1_key;
-        nft_1_state.last_bred_timestamp = timestamp;
-        nft_2_state.authority = *user.key;
-        nft_2_state.nft = nft_2_key;
-        nft_2_state.last_bred_timestamp = timestamp;
 
         /*
         Burn $BAPE after minting potion
@@ -205,27 +160,12 @@ pub mod breeding_state {
 pub struct UpdateState<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    // #[account(mut)]
-    pub potion_mint: AccountInfo<'info>,
-    #[account(mut)]
-    pub potion_state: Account<'info, PotionState>,
 
     // TODO: owner = user?
     #[account(mut)]
     pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
     #[account(mut)]
     pub token_mint: Account<'info, anchor_spl::token::Mint>,  // $BAPE mint, generic enough for any token though
-
-    // TODO: come back for validations
-    // #[account(owner = *user.key)]
-    pub nft_1: AccountInfo<'info>,
-    // constraint= config.to_account_info().owner
-    #[account(mut)]  //, seeds = [PREFIX.as_bytes(), nft_1.key.as_ref()], bump)]
-    pub nft_1_state: Account<'info, NftState>,
-    // #[account(owner = *user.key)]
-    pub nft_2: AccountInfo<'info>,
-    #[account(mut)] //, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump)]
-    pub nft_2_state: Account<'info, NftState>,
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
@@ -259,23 +199,6 @@ pub struct MintPotion<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-#[account]
-#[derive(Default)]
-pub struct PotionState {
-    pub authority: Pubkey,
-    pub nft1: Pubkey,
-    pub nft2: Pubkey,
-    pub created_timestamp: u64
-}
-
-#[account]
-#[derive(Default)]
-pub struct NftState {
-    pub authority: Pubkey,
-    pub nft: Pubkey,
-    pub last_bred_timestamp: u64
-}
-
 #[error]
 pub enum ErrorCode {
     #[msg("This potion has not reached its cooldown period.")]
@@ -290,17 +213,6 @@ pub enum ErrorCode {
     WrongToken,
     #[msg("Used same NFT's.")]
     SameNFTs,
-    #[msg("This NFT has been used for breeding in the last 10 days.")]
-    NftUsedTooSoon,
-}
-
-fn get_timestamp() -> u64 {
-    return Clock::get().unwrap().unix_timestamp as u64;
-}
-
-fn get_breed_min_timestamp(timestamp: u64) -> u64 {
-    let seven_days_in_seconds = 7 * 24 * 60 * 60;
-    return timestamp - seven_days_in_seconds;
 }
 
 pub fn create_metadata_accounts(
