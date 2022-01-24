@@ -10,10 +10,13 @@ use spl_token_metadata::{
 use solana_program::instruction::{Instruction,AccountMeta};
 
 
-declare_id!("Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y");
+declare_id!("83nsodFCXbiRo3gGt6Pz7Bx2Sr1xoxnvm38Bg8CFn7n1");
 
-const PREFIX: &str = "bapeBreedingTest17";
+const PREFIX: &str = "bapeBreedingTest-TRR4";
 const PREFIX_POTION: &str = "potion";
+
+const PREFIX_COUNT: &str = "bapeBreedingTestCount";
+const PREFIX_COUNT_POTION: &str = "potionCount";
 
 #[program]
 pub mod breeding_cooldown {
@@ -27,7 +30,7 @@ pub mod breeding_cooldown {
         let potion_master_edition = &ctx.accounts.potion_master_edition;
         let potion_token = &ctx.accounts.potion_token;
         let potion_creator = &ctx.accounts.potion_creator;
-        let other_creator = &ctx.accounts.other_creator;
+        let other_creator = "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap();
         let nft_1 = &ctx.accounts.nft_1;
         let nft_2 = &ctx.accounts.nft_2;
 
@@ -40,10 +43,10 @@ pub mod breeding_cooldown {
         let rent = &ctx.accounts.rent;
 
         // check global potion count
-        let potion_count = &mut ctx.accounts.potion_count;
-        if potion_count.count >= (3333 as u16) {
-            return Err(ErrorCode::NoMorePotions.into())
-        }
+        // let potion_count = &mut ctx.accounts.potion_count;
+        // if potion_count.count >= (0 as u16) {
+        //     return Err(ErrorCode::NoMorePotions.into())
+        // }
 
         // check token is $bape - change for prod
         let bape_mint = "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap();
@@ -73,9 +76,6 @@ pub mod breeding_cooldown {
         let decimals = 9;
         let base: u64 = 10;
         let burn_price = 500 * base.pow(decimals);
-        if token_user_account.amount < burn_price {
-            return Err(ErrorCode::InsufficientFunds.into())
-        }
 
         // set state
         let potion_state = &mut ctx.accounts.potion_state;
@@ -305,7 +305,8 @@ pub mod breeding_cooldown {
 pub struct CreatePotion<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 20)]
+    //#[account(mut, seeds = [PREFIX_COUNT.as_ref(), PREFIX_COUNT_POTION.as_ref()], bump=creator_bump)]
+    #[account(init, payer = user, space = 8 + 8)]
     pub potion_count: Account<'info, PotionCount>,
     #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
@@ -313,8 +314,6 @@ pub struct CreatePotion<'info> {
     pub potion_state: Account<'info, PotionState>,
     #[account(mut, seeds = [PREFIX.as_ref(), PREFIX_POTION.as_ref()], bump=creator_bump)]
     pub potion_creator: AccountInfo<'info>,
-    #[account(mut)]
-    pub other_creator: AccountInfo<'info>,
     #[account(mut)]
     pub potion_mint_metadata: AccountInfo<'info>,
     #[account(mut)]
