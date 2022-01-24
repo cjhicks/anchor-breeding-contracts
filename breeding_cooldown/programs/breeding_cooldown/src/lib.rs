@@ -29,8 +29,8 @@ pub mod breeding_cooldown {
         let potion_master_edition = &ctx.accounts.potion_master_edition;
         let potion_token = &ctx.accounts.potion_token;
         let potion_creator = &ctx.accounts.potion_creator;
-        // let nft_1 = &ctx.accounts.nft_1;
-        // let nft_2 = &ctx.accounts.nft_2;
+        let nft_1 = &ctx.accounts.nft_1;
+        let nft_2 = &ctx.accounts.nft_2;
 
         let user = &ctx.accounts.user;
         let token_mint = ctx.accounts.token_mint.to_account_info();
@@ -42,33 +42,33 @@ pub mod breeding_cooldown {
 
         // check global potion count
         let potion_count = &mut ctx.accounts.potion_count;
-        if potion_count.count >= (1 as u16) {
+        if potion_count.count >= (3333 as u16) {
             return Err(ErrorCode::NoMorePotions.into())
         }
 
         // TODO do we need to check if the nft tokens are bored ape social club nfts?
 
         // check token is $bape - change for prod
-        // if token_mint.key() != "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap() {
-        //     return Err(ErrorCode::WrongToken.into())
-        // }
+        if token_mint.key() != "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap() {
+            return Err(ErrorCode::WrongToken.into())
+        }
 
         // check NFT's are not same
-        // if nft_1.key() == nft_2.key() {
-        //     return Err(ErrorCode::SameNFTs.into())
-        // }
+        if nft_1.key() == nft_2.key() {
+            return Err(ErrorCode::SameNFTs.into())
+        }
 
         // // check if 7 days since last breeding
         let timestamp = get_timestamp();
-        //let breed_min_timestamp = get_breed_min_timestamp(timestamp);
+        let breed_min_timestamp = get_breed_min_timestamp(timestamp);
         let nft_1_state = &mut ctx.accounts.nft_1_state;
-        // if nft_1_state.last_bred_timestamp > breed_min_timestamp {
-        //     return Err(ErrorCode::NftUsedTooSoon.into());
-        // }
+        if nft_1_state.last_bred_timestamp > breed_min_timestamp {
+            return Err(ErrorCode::NftUsedTooSoon.into());
+        }
         let nft_2_state = &mut ctx.accounts.nft_2_state;
-        // if nft_2_state.last_bred_timestamp > breed_min_timestamp {
-        //     return Err(ErrorCode::NftUsedTooSoon.into());
-        // }
+        if nft_2_state.last_bred_timestamp > breed_min_timestamp {
+            return Err(ErrorCode::NftUsedTooSoon.into());
+        }
 
         // check if we have enough $BAPE before continuing
         let burn_price = 500 * 10_u64.pow(9);
@@ -164,22 +164,22 @@ pub mod breeding_cooldown {
             &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
         )?;
 
-        // invoke_signed(
-        //     &update_metadata_accounts(
-        //         token_metadata_program.key(), 
-        //         *potion_mint_metadata.key,
-        //         *potion_creator.key,
-        //         None,
-        //         None,
-        //         Some(true),
-        //     ),
-        //     &[  
-        //         potion_mint_metadata.to_account_info(),
-        //         potion_creator.clone(),
-        //         token_metadata_program.to_account_info()
-        //     ],
-        //     &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
-        // )?;
+        invoke_signed(
+            &update_metadata_accounts(
+                token_metadata_program.key(), 
+                *potion_mint_metadata.key,
+                *potion_creator.key,
+                None,
+                None,
+                Some(true),
+            ),
+            &[  
+                potion_mint_metadata.to_account_info(),
+                potion_creator.clone(),
+                token_metadata_program.to_account_info()
+            ],
+            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
+        )?;
         potion_count.count = potion_count.count+1;
         Ok(())
     }
@@ -247,10 +247,10 @@ fn get_timestamp() -> u64 {
     return Clock::get().unwrap().unix_timestamp as u64;
 }
 
-// fn get_breed_min_timestamp(timestamp: u64) -> u64 {
-//     let seven_days_in_seconds = 7 * 24 * 60 * 60;
-//     return timestamp - seven_days_in_seconds;
-// }
+fn get_breed_min_timestamp(timestamp: u64) -> u64 {
+    let seven_days_in_seconds = 7 * 24 * 60 * 60;
+    return timestamp - seven_days_in_seconds;
+}
 
 pub fn create_metadata_accounts(
     program_id: Pubkey,
