@@ -1,9 +1,9 @@
-[programs.devnet]
-breeding_cooldown = "83nsodFCXbiRo3gGt6Pz7Bx2Sr1xoxnvm38Bg8CFn7n1"
+[programs.localnet]
+breeding_cooldown = "Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y"
 
 [provider]
-cluster = "devnet"
-wallet = "/home/soltyler/.config/solana/devnet.json"
+cluster = "localnet"
+wallet = "~/.config/solana/devnet.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

@@ -12,16 +12,15 @@ use solana_program::instruction::{Instruction,AccountMeta};
 
 declare_id!("Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y");
 
-const PREFIX: &str = "bapeBreedingTest18";
-const PREFIX_POTION: &str = "potion";
-const PREFIX_COUNT: &str = "count";
+const PREFIX: &[u8] = b"bapeBreedingTest18";
+const PREFIX_POTION: &[u8] = b"potion";
+const PREFIX_COUNT: &[u8] = b"count";
 
 #[program]
 pub mod breeding_cooldown {
     use super::*;
-    /*
-    This function is equivalent to breeding an egg: https://explorer.solana.com/tx/g5fg51XveddE1MyU3GsEUpU6e3vUz1BhWNBvye6hBziDZbKsBv4H1UjLEKr1rjLFtABt6YNM6TBBoMzDxtQ5td5
-    */
+
+    // TODO: check NFT is of BASC collection
     pub fn create_potion(ctx: Context<CreatePotion>, creator_bump: u8) -> ProgramResult {
         let potion_mint = &mut ctx.accounts.potion_mint;
         let potion_mint_metadata = &mut ctx.accounts.potion_mint_metadata;
@@ -134,7 +133,7 @@ pub mod breeding_cooldown {
                 rent.clone(),
                 token_metadata_program.to_account_info()
             ],
-            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
+            &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
         ).expect("create_metadata_accounts failed.");
 
         invoke_signed(
@@ -159,7 +158,7 @@ pub mod breeding_cooldown {
                 rent.clone(),
                 token_metadata_program.to_account_info()
             ],
-            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
+            &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
         )?;
 
         invoke_signed(
@@ -176,7 +175,7 @@ pub mod breeding_cooldown {
                 potion_creator.clone(),
                 token_metadata_program.to_account_info()
             ],
-            &[&[PREFIX.as_bytes(), PREFIX_POTION.as_bytes(), &[creator_bump]]]
+            &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
         )?;
         potion_count.count = potion_count.count+1;
         Ok(())
@@ -192,7 +191,7 @@ pub mod breeding_cooldown {
         3. Created Timestamp > 7 days
         4. Verify Mint on egg is legit
         */
-        let user = &ctx.accounts.user;
+        // let user = &ctx.accounts.user;
         let potion_state = &ctx.accounts.potion_state;
         // let nft_1_state = &ctx.accounts.nft_1_state;
         // let nft_2_state = &ctx.accounts.nft_2_state;
@@ -313,11 +312,11 @@ pub struct CreatePotion<'info> {
     pub nft_1: AccountInfo<'info>,
     // TODO: come back for validations
     // constraint= config.to_account_info().owner
-    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
+    #[account(init_if_needed, seeds = [PREFIX, nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_1_state: Account<'info, NftState>,
     // // #[account(owner = *user.key)]
     pub nft_2: AccountInfo<'info>,
-    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
+    #[account(init_if_needed, seeds = [PREFIX, nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_2_state: Account<'info, NftState>,
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
@@ -355,11 +354,11 @@ pub struct React<'info> {
     pub nft_1: AccountInfo<'info>,
     // TODO: come back for validations
     // constraint= config.to_account_info().owner
-    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
+    #[account(init_if_needed, seeds = [PREFIX, nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_1_state: Account<'info, NftState>,
     // // #[account(owner = *user.key)]
     pub nft_2: AccountInfo<'info>,
-    #[account(init_if_needed, seeds = [PREFIX.as_bytes(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
+    #[account(init_if_needed, seeds = [PREFIX, nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_2_state: Account<'info, NftState>,
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
