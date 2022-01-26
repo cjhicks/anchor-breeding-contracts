@@ -15,6 +15,7 @@ declare_id!("Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y");
 const PREFIX: &[u8] = b"bapeBreedingTest18";
 const PREFIX_POTION: &[u8] = b"potion";
 const PREFIX_COUNT: &[u8] = b"count";
+const PREFIX_MUTANT: &[u8] = b"mutant";
 
 #[program]
 pub mod breeding_cooldown {
@@ -43,7 +44,6 @@ pub mod breeding_cooldown {
         if potion_count.count >= (3333 as u16) {
             return Err(ErrorCode::NoMorePotions.into())
         }
-        potion_count.count += 1;
 
         // check token is $bape - change for prod
         if token_mint.key() != "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap() {
@@ -55,7 +55,7 @@ pub mod breeding_cooldown {
             return Err(ErrorCode::SameNFTs.into())
         }
 
-        // // check if 7 days since last breeding
+        // check if 7 days since last breeding
         let timestamp = get_timestamp();
         let breed_min_timestamp = get_breed_min_timestamp(timestamp);
         let nft_1_state = &mut ctx.accounts.nft_1_state;
@@ -94,141 +94,66 @@ pub mod breeding_cooldown {
         Mint new NFT for potion
         */
         let uri = r"https://arweave.net/OEbN9FS8F4_P7nj_WoWoXuaour_oN4BVSZRbxrXTStc";
-        let creators_ptn = vec![
-            Creator{
-                address: potion_creator.key(),
-                verified: true,
-                share: 0,
-            },
-            Creator{
-                address: "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap().key(),
-                verified: false,
-                share: 100,
-            },
-        ];
-
-        invoke_signed(
-            &create_metadata_accounts(    
-                *token_metadata_program.key,// spl_token_metadata::id(), 
-                *potion_mint_metadata.key,
-                *potion_mint.key,
-                *user.key,
-                *user.key,
-                *potion_creator.key,
-                "Protocol #367".to_string(),
-                "BASE".to_string(),
-                uri.to_string(),
-                Some(creators_ptn),
-                500, //royalties,
-                true,
-                true, // false?
-            ),
-            &[
-                potion_mint_metadata.clone(),
-                potion_mint.to_account_info(),
-                user.to_account_info(),
-                potion_creator.clone(),
-                token_program.to_account_info(),
-                system_program.clone(),
-                rent.clone(),
-                token_metadata_program.to_account_info()
-            ],
-            &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
-        ).expect("create_metadata_accounts failed.");
-
-        invoke_signed(
-            &create_master_edition(
-                token_metadata_program.key(), 
-                potion_master_edition.key(),
-                potion_mint.key(),
-                potion_creator.key(),
-                user.key(),
-                potion_mint_metadata.key(),
-                user.key(),
-                Some(0),
-            ),
-            &[  
-                potion_master_edition.to_account_info(),
-                potion_mint.to_account_info(),
-                potion_creator.clone(),
-                user.to_account_info(),
-                potion_mint_metadata.to_account_info(),
-                potion_token.to_account_info(),
-                system_program.clone(),
-                rent.clone(),
-                token_metadata_program.to_account_info()
-            ],
-            &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
+        mint_nft(
+            "Protocol #367".to_string(),
+            "BASE".to_string(),
+            uri.to_string(),
+            user,
+            potion_creator,
+            creator_bump,
+            potion_mint,
+            potion_mint_metadata,
+            potion_master_edition,
+            potion_token,
+            token_program,
+            token_metadata_program,
+            system_program,
+            rent
         )?;
 
-        invoke_signed(
-            &update_metadata_accounts(
-                token_metadata_program.key(), 
-                *potion_mint_metadata.key,
-                *potion_creator.key,
-                None,
-                None,
-                Some(true),
-            ),
-            &[  
-                potion_mint_metadata.to_account_info(),
-                potion_creator.clone(),
-                token_metadata_program.to_account_info()
-            ],
-            &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
-        )?;
-        potion_count.count = potion_count.count+1;
+        potion_count.count += 1;
+
         Ok(())
     }
 
-    pub fn react(ctx: Context<React>) -> ProgramResult {
+    pub fn react(ctx: Context<React>, creator_bump: u8) -> ProgramResult {
+
+        // TODO: check potion is of collection
+
+        // check if 7 days since last breeding
+        let potion_state = &ctx.accounts.potion_state;
         let timestamp = get_timestamp();
         let breed_min_timestamp = get_breed_min_timestamp(timestamp);
-        /*
-        Validations (function)
-        1. User is Authority on Potion
-        2. NFT metadata matches Potion and Authority
-        3. Created Timestamp > 7 days
-        4. Verify Mint on egg is legit
-        */
-        // let user = &ctx.accounts.user;
-        let potion_state = &ctx.accounts.potion_state;
-        // let nft_1_state = &ctx.accounts.nft_1_state;
-        // let nft_2_state = &ctx.accounts.nft_2_state;
-
-        // TODO: Token Owner is me
-        // TODO: Harcoded Potion Mint ID?
-
-        // TODO: mint before hand? init mint?
-        // TODO: Candy machine with same image
-        // Update authority - one created (wallet)
-
-        // mint authority - one that minted it - can't create?
-        // on egg, mint authority is metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s - Metaplex Token Metadata
-        // https://solscan.io/token/DjcECAj4TYJANgr9oFmcZTcdJrA5icnoscs5k3CddbVS
-
-        // TODO: createAssociatedTokenAccountInstruction(potionToken, walletKey, walletKey, potionMint),
-        // TODO: Transfer Potion
         if potion_state.created_timestamp > breed_min_timestamp {
             return Err(ErrorCode::NftUsedTooSoon.into());
         }
 
-        // TODO: mint new NFT (master edition)
-        // TODO: make this a reusable function
-        // TODO: for now, maybe follow this? Then hook into candy machine later: https://spl.solana.com/token#example-create-a-non-fungible-token
+        // check global mutant count
+        let mutant_count = &mut ctx.accounts.mutant_count;
+        if mutant_count.count >= (3333 as u16) {
+            return Err(ErrorCode::NoMoreMutants.into())
+        }
 
-        // TODO: Create baby
-        // client: use PublicKey.findProgramAddress to create empty (existing) address (state) for each NFT input
-        // server: verify egg over 7 days - no parent necessary?
-        // - or, should we require pass it in to verify its still held?
+        // TODO: get custom URI for this mutant!!!
+        let uri = r"https://arweave.net/OEbN9FS8F4_P7nj_WoWoXuaour_oN4BVSZRbxrXTStc";
+        mint_nft(
+            "Mutant #367".to_string(),
+            "BASE".to_string(),
+            uri.to_string(),
+            &ctx.accounts.user,
+            &ctx.accounts.mutant_creator,
+            creator_bump,
+            &ctx.accounts.mutant_mint,
+            &ctx.accounts.mutant_mint_metadata,
+            &ctx.accounts.mutant_master_edition,
+            &ctx.accounts.mutant_token,
+            &ctx.accounts.token_program,
+            &ctx.accounts.token_metadata_program,
+            &ctx.accounts.system_program,
+            &ctx.accounts.rent.to_account_info()
+        )?;
 
-        // FIrst Instructions
-        // 1 - Create Account (walletKey, new=babyMint)
-        // 2 - Init Mint (walletKey, mint: babyMint)
-        // 3 - Associated Token Create (account=babyToken, mint=babyMint, walletKey)
-        // 4 - MintTo (token=babyMint, account=babyToken, mint=BabyMint, authority=walletKey)
-
-        // Unknown Program Instructions
+        mutant_count.count += 1;
 
         Ok(())
     }
@@ -289,7 +214,7 @@ pub struct CreatePotion<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     #[account(init_if_needed, seeds= [PREFIX.as_ref(), PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30)]
-    pub potion_count: Account<'info, PotionCount>,
+    pub potion_count: Account<'info, Counter>,
     #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
     #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 60)]
@@ -328,38 +253,29 @@ pub struct CreatePotion<'info> {
 }
 
 #[derive(Accounts)]
-// #[instruction(creator_bump: u8)]
+#[instruction(creator_bump: u8)]
 pub struct React<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
     #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 60)]
     pub potion_state: Account<'info, PotionState>,
-    // #[account(mut, seeds = [PREFIX.as_ref(), PREFIX_POTION.as_ref()], bump=creator_bump)]
-    // pub potion_creator: AccountInfo<'info>,
-    #[account(mut)]
-    pub potion_mint_metadata: AccountInfo<'info>,
-    #[account(mut)]
-    pub potion_master_edition: AccountInfo<'info>,
-    #[account(mut)]
-    pub potion_token: AccountInfo<'info>,
+    // #[account(mut)]
+    // pub potion_token: AccountInfo<'info>,
 
-    // TODO: owner = user?
+    #[account(init_if_needed, seeds= [PREFIX, PREFIX_MUTANT, PREFIX_COUNT], bump, payer = user, space = 8 + 30)]
+    pub mutant_count: Account<'info, Counter>,
     #[account(mut)]
-    pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
+    pub mutant_mint: AccountInfo<'info>,
+    #[account(mut, seeds = [PREFIX.as_ref(), PREFIX_MUTANT], bump=creator_bump)]
+    pub mutant_creator: AccountInfo<'info>,
     #[account(mut)]
-    pub token_mint: Account<'info, anchor_spl::token::Mint>,  // $BAPE mint, generic enough for any token though
-    // #[account(owner = *user.key)]
-    pub nft_1: AccountInfo<'info>,
-    // TODO: come back for validations
-    // constraint= config.to_account_info().owner
-    #[account(init_if_needed, seeds = [PREFIX, nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
-    pub nft_1_state: Account<'info, NftState>,
-    // // #[account(owner = *user.key)]
-    pub nft_2: AccountInfo<'info>,
-    #[account(init_if_needed, seeds = [PREFIX, nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
-    pub nft_2_state: Account<'info, NftState>,
+    pub mutant_mint_metadata: AccountInfo<'info>,
+    #[account(mut)]
+    pub mutant_master_edition: AccountInfo<'info>,
+    #[account(mut)]
+    pub mutant_token: AccountInfo<'info>,
+
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
     // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
@@ -378,6 +294,8 @@ pub enum ErrorCode {
     SameNFTs,
     #[msg("This NFT has been used for breeding in the last 10 days.")]
     NftUsedTooSoon,
+    #[msg("No more mutants available.")]
+    NoMoreMutants,
 }
 
 fn get_timestamp() -> u64 {
@@ -387,6 +305,108 @@ fn get_timestamp() -> u64 {
 fn get_breed_min_timestamp(timestamp: u64) -> u64 {
     let ten_days_in_seconds = 10 * 24 * 60 * 60;
     return timestamp - ten_days_in_seconds;
+}
+
+pub fn mint_nft<'a>(
+    name: String,
+    symbol: String,
+    uri: String,
+    user: &Signer<'a>,
+    creator: &AccountInfo<'a>,
+    creator_bump: u8,
+    mint: &AccountInfo<'a>,
+    mint_metadata: &AccountInfo<'a>,
+    master_edition: &AccountInfo<'a>,
+    token: &AccountInfo<'a>,
+    token_program: &AccountInfo<'a>,
+    token_metadata_program: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
+    rent: &AccountInfo<'a>,
+) -> ProgramResult {
+    let creators_ptn = vec![
+        Creator{
+            address: creator.key(),
+            verified: true,
+            share: 0,
+        },
+        Creator{
+            address: "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap().key(),
+            verified: false,
+            share: 100,
+        },
+    ];
+
+    invoke_signed(
+        &create_metadata_accounts(    
+            *token_metadata_program.key,
+            *mint_metadata.key,
+            *mint.key,
+            *user.key,
+            *user.key,
+            *creator.key,
+            name,
+            symbol,
+            uri,
+            Some(creators_ptn),
+            500, //royalties,
+            true,
+            true,
+        ),
+        &[
+            mint_metadata.clone(),
+            mint.clone(),
+            user.to_account_info().clone(),
+            creator.clone(),
+            token_program.clone(),
+            system_program.clone(),
+            token_metadata_program.clone()
+        ],
+        &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
+    ).expect("create_metadata_accounts failed.");
+
+    invoke_signed(
+        &create_master_edition(
+            token_metadata_program.key(), 
+            master_edition.key(),
+            mint.key(),
+            creator.key(),
+            user.key(),
+            mint_metadata.key(),
+            user.key(),
+            Some(0),
+        ),
+        &[  
+            master_edition.to_account_info(),
+            mint.to_account_info(),
+            creator.clone(),
+            user.to_account_info(),
+            mint_metadata.to_account_info(),
+            token.to_account_info(),
+            system_program.clone(),
+            rent.clone(),
+            token_metadata_program.to_account_info()
+        ],
+        &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
+    )?;
+
+    invoke_signed(
+        &update_metadata_accounts(
+            token_metadata_program.key(), 
+            *mint_metadata.key,
+            *creator.key,
+            None,
+            None,
+            Some(true),
+        ),
+        &[  
+            mint_metadata.to_account_info(),
+            creator.clone(),
+            token_metadata_program.to_account_info()
+        ],
+        &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
+    )?;
+
+    Ok(())
 }
 
 pub fn create_metadata_accounts(
@@ -475,6 +495,6 @@ pub struct NftState {
 
 #[account]
 #[derive(Default)]
-pub struct PotionCount {
+pub struct Counter {
     pub count: u16
 }
