@@ -14,8 +14,8 @@ declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw");
 
 const PREFIX: &[u8] = b"bapeBrd2";
 const PREFIX_POTION: &[u8] = b"ptn";
-const PREFIX_COUNT: &[u8] = b"cnt";
-// const PREFIX_MUTANT: &[u8] = b"mtnt";
+// const PREFIX_COUNT: &[u8] = b"cnt";
+const PREFIX_MUTANT: &[u8] = b"mtnt";
 
 #[program]
 pub mod breeding_cooldown {
@@ -79,52 +79,45 @@ pub mod breeding_cooldown {
             &ctx.accounts.rent.to_account_info()
         )?;
 
-        ctx.accounts.potion_count.count += 1;
+        // ctx.accounts.potion_count.count += 1;
 
         Ok(())
     }
 
-    // pub fn react(ctx: Context<React>, creator_bump: u8) -> ProgramResult {
+    pub fn react(ctx: Context<React>, creator_bump: u8) -> ProgramResult {
+        // TODO: check potion is of collection
 
-    //     // TODO: check potion is of collection
+        // check if 7 days since last breeding
+        let potion_state = &ctx.accounts.potion_state;
+        let timestamp = get_timestamp();
+        let breed_min_timestamp = get_breed_min_timestamp(timestamp);
+        // if potion_state.created_timestamp > breed_min_timestamp {
+        //     return Err(ErrorCode::NftUsedTooSoon.into());
+        // }
 
-    //     // check if 7 days since last breeding
-    //     let potion_state = &ctx.accounts.potion_state;
-    //     let timestamp = get_timestamp();
-    //     let breed_min_timestamp = get_breed_min_timestamp(timestamp);
-    //     if potion_state.created_timestamp > breed_min_timestamp {
-    //         return Err(ErrorCode::NftUsedTooSoon.into());
-    //     }
+        // TODO: get custom URI for this mutant!!!
+        let uri = r"https://arweave.net/OEbN9FS8F4_P7nj_WoWoXuaour_oN4BVSZRbxrXTStc";
+        mint_nft(
+            "Mutant #367".to_string(),
+            "BASE".to_string(),
+            uri.to_string(),
+            &ctx.accounts.user,
+            &ctx.accounts.mutant_creator,
+            creator_bump,
+            &ctx.accounts.mutant_mint,
+            &ctx.accounts.mutant_mint_metadata,
+            &ctx.accounts.mutant_master_edition,
+            &ctx.accounts.mutant_token,
+            &ctx.accounts.token_program,
+            &ctx.accounts.token_metadata_program,
+            &ctx.accounts.system_program,
+            &ctx.accounts.rent.to_account_info()
+        )?;
 
-    //     // check global mutant count
-    //     let mutant_count = &mut ctx.accounts.mutant_count;
-    //     if mutant_count.count >= (3333 as u16) {
-    //         return Err(ErrorCode::NoMoreMutants.into())
-    //     }
+        // ctx.accounts.mutant_count.count += 1;
 
-    //     // TODO: get custom URI for this mutant!!!
-    //     let uri = r"https://arweave.net/OEbN9FS8F4_P7nj_WoWoXuaour_oN4BVSZRbxrXTStc";
-    //     mint_nft(
-    //         "Mutant #367".to_string(),
-    //         "BASE".to_string(),
-    //         uri.to_string(),
-    //         &ctx.accounts.user,
-    //         &ctx.accounts.mutant_creator,
-    //         creator_bump,
-    //         &ctx.accounts.mutant_mint,
-    //         &ctx.accounts.mutant_mint_metadata,
-    //         &ctx.accounts.mutant_master_edition,
-    //         &ctx.accounts.mutant_token,
-    //         &ctx.accounts.token_program,
-    //         &ctx.accounts.token_metadata_program,
-    //         &ctx.accounts.system_program,
-    //         &ctx.accounts.rent.to_account_info()
-    //     )?;
-
-    //     mutant_count.count += 1;
-
-    //     Ok(())
-    // }
+        Ok(())
+    }
 
     // pub fn fast_react(ctx: Context<FastReact>) -> ProgramResult {
     //     /*
@@ -181,12 +174,12 @@ pub mod breeding_cooldown {
 pub struct CreatePotion<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    #[account(
-        init_if_needed,
-        seeds = [PREFIX.as_ref(), PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
-        constraint = potion_count.count < (3333 as u16) @ ErrorCode::NoMorePotions
-    )]
-    pub potion_count: Account<'info, Counter>,
+    // #[account(
+    //     init_if_needed,
+    //     seeds = [PREFIX.as_ref(), PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
+    //     constraint = potion_count.count < (3333 as u16) @ ErrorCode::NoMorePotions
+    // )]
+    // pub potion_count: Account<'info, Counter>,
     #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
     #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 80)]
@@ -199,7 +192,6 @@ pub struct CreatePotion<'info> {
     pub potion_master_edition: AccountInfo<'info>,
     #[account(mut)]
     pub potion_token: AccountInfo<'info>,
-
     // TODO: owner = user?
     #[account(mut)]
     pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
@@ -228,37 +220,39 @@ pub struct CreatePotion<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// #[derive(Accounts)]
-// #[instruction(creator_bump: u8)]
-// pub struct React<'info> {
-//     #[account(mut)]
-//     pub user: Signer<'info>,
-//     pub potion_mint: AccountInfo<'info>,
-//     #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 60)]
-//     pub potion_state: Account<'info, PotionState>,
-//     // #[account(mut)]
-//     // pub potion_token: AccountInfo<'info>,
+#[derive(Accounts)]
+#[instruction(creator_bump: u8)]
+pub struct React<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(mut)]
+    pub potion_mint: AccountInfo<'info>,
+    #[account(seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump)]
+    pub potion_state: Account<'info, PotionState>,
+    // #[account(
+    //     init_if_needed,
+    //     seeds = [PREFIX.as_ref(), PREFIX_MUTANT, PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
+    //     constraint = mutant_count.count < (3333 as u16) @ ErrorCode::NoMoreMutants
+    // )]
+    // pub mutant_count: Account<'info, Counter>,
+    #[account(mut)]
+    pub mutant_mint: AccountInfo<'info>,
+    #[account(mut, seeds = [PREFIX.as_ref(), PREFIX_MUTANT], bump=creator_bump)]
+    pub mutant_creator: AccountInfo<'info>,
+    #[account(mut)]
+    pub mutant_mint_metadata: AccountInfo<'info>,
+    #[account(mut)]
+    pub mutant_master_edition: AccountInfo<'info>,
+    #[account(mut)]
+    pub mutant_token: AccountInfo<'info>,
 
-//     #[account(init_if_needed, seeds= [PREFIX, PREFIX_MUTANT, PREFIX_COUNT], bump, payer = user, space = 8 + 30)]
-//     pub mutant_count: Account<'info, Counter>,
-//     #[account(mut)]
-//     pub mutant_mint: AccountInfo<'info>,
-//     #[account(mut, seeds = [PREFIX.as_ref(), PREFIX_MUTANT], bump=creator_bump)]
-//     pub mutant_creator: AccountInfo<'info>,
-//     #[account(mut)]
-//     pub mutant_mint_metadata: AccountInfo<'info>,
-//     #[account(mut)]
-//     pub mutant_master_edition: AccountInfo<'info>,
-//     #[account(mut)]
-//     pub mutant_token: AccountInfo<'info>,
-
-//     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
-//     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
-//     // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
-//     pub token_metadata_program: AccountInfo<'info>,
-//     pub system_program: Program<'info, System>, // this is just anchor.web3.SystemProgram.programId from frontend
-//     pub rent: Sysvar<'info, Rent>,
-// }
+    #[account(executable, "token_program.key == &anchor_spl::token::ID")]
+    pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
+    // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
+    pub token_metadata_program: AccountInfo<'info>,
+    pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
+    pub rent: Sysvar<'info, Rent>,
+}
 
 #[error]
 pub enum ErrorCode {
@@ -470,8 +464,8 @@ pub struct NftState {
     pub last_bred_timestamp: u64
 }
 
-#[account]
-#[derive(Default)]
-pub struct Counter {
-    pub count: u16
-}
+// #[account]
+// #[derive(Default)]
+// pub struct Counter {
+//     pub count: u16
+// }

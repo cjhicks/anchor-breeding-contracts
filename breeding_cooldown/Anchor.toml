@@ -1,8 +1,8 @@
-[programs.localnet]
-breeding_cooldown = "Ajg8yy4gNuLwMWdH1k7sWVNaZb3nMu4wMHY8YED4iY6Y"
+[programs.devnet]
+breeding_cooldown = "6znq4tQvjJRwcLRfutp9K5cghLL6zfqJYz7NusVmicYQ"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/devnet.json"
 
 [scripts]
