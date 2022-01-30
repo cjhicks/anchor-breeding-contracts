@@ -95,6 +95,20 @@ pub mod breeding_cooldown {
         //     return Err(ErrorCode::NftUsedTooSoon.into());
         // }
 
+        /*
+        TODO: Burn potion
+        */
+        // let burn_ctx = CpiContext::new(
+        //     ctx.accounts.token_program.clone(),
+        //     anchor_spl::token::Burn {
+        //         to: ctx.accounts.potion_user_account.to_account_info(),
+        //         mint: ctx.accounts.potion_mint.to_account_info(),
+        //         authority: ctx.accounts.user.to_account_info(),
+        //     }
+        // );
+        // anchor_spl::token::burn(burn_ctx, 1)
+        //     .expect("burn failed.");
+
         // TODO: get custom URI for this mutant!!!
         let uri = r"https://arweave.net/OEbN9FS8F4_P7nj_WoWoXuaour_oN4BVSZRbxrXTStc";
         mint_nft(
