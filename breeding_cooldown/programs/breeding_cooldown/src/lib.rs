@@ -105,7 +105,7 @@ pub mod breeding_cooldown {
             &ctx.accounts.mutant_creator,
             creator_bump,
             &ctx.accounts.mutant_mint,
-            &ctx.accounts.mutant_mint_metadata,
+            &mut ctx.accounts.mutant_mint_metadata,
             &ctx.accounts.mutant_master_edition,
             &ctx.accounts.mutant_token,
             &ctx.accounts.token_program,
@@ -237,7 +237,7 @@ pub struct React<'info> {
     // pub mutant_count: Account<'info, Counter>,
     #[account(mut)]
     pub mutant_mint: AccountInfo<'info>,
-    #[account(mut, seeds = [PREFIX.as_ref(), PREFIX_MUTANT], bump=creator_bump)]
+    #[account(mut, seeds = [PREFIX, PREFIX_MUTANT], bump=creator_bump)]
     pub mutant_creator: AccountInfo<'info>,
     #[account(mut)]
     pub mutant_mint_metadata: AccountInfo<'info>,
