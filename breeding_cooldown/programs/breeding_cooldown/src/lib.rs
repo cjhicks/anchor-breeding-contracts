@@ -68,7 +68,7 @@ pub mod breeding_cooldown {
             uri.to_string(),
             user,
             &ctx.accounts.potion_creator,
-            creator_bump,
+            &[PREFIX, PREFIX_POTION, &[creator_bump]],
             potion_mint,
             &mut ctx.accounts.potion_mint_metadata,
             &ctx.accounts.potion_master_edition,
@@ -96,18 +96,18 @@ pub mod breeding_cooldown {
         // }
 
         /*
-        TODO: Burn potion
+        Burn potion
         */
-        // let burn_ctx = CpiContext::new(
-        //     ctx.accounts.token_program.clone(),
-        //     anchor_spl::token::Burn {
-        //         to: ctx.accounts.potion_user_account.to_account_info(),
-        //         mint: ctx.accounts.potion_mint.to_account_info(),
-        //         authority: ctx.accounts.user.to_account_info(),
-        //     }
-        // );
-        // anchor_spl::token::burn(burn_ctx, 1)
-        //     .expect("burn failed.");
+        let burn_ctx = CpiContext::new(
+            ctx.accounts.token_program.clone(),
+            anchor_spl::token::Burn {
+                to: ctx.accounts.potion_token.to_account_info(),
+                mint: ctx.accounts.potion_mint.to_account_info(),
+                authority: ctx.accounts.user.to_account_info(),
+            }
+        );
+        anchor_spl::token::burn(burn_ctx, 1)
+            .expect("burn failed.");
 
         // TODO: get custom URI for this mutant!!!
         let uri = r"https://arweave.net/OEbN9FS8F4_P7nj_WoWoXuaour_oN4BVSZRbxrXTStc";
@@ -117,7 +117,7 @@ pub mod breeding_cooldown {
             uri.to_string(),
             &ctx.accounts.user,
             &ctx.accounts.mutant_creator,
-            creator_bump,
+            &[PREFIX, PREFIX_MUTANT, &[creator_bump]],
             &ctx.accounts.mutant_mint,
             &mut ctx.accounts.mutant_mint_metadata,
             &ctx.accounts.mutant_master_edition,
@@ -241,6 +241,8 @@ pub struct React<'info> {
     pub user: Signer<'info>,
     #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
+    #[account(mut)]
+    pub potion_token: AccountInfo<'info>,
     #[account(seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump)]
     pub potion_state: Account<'info, PotionState>,
     // #[account(
@@ -297,7 +299,7 @@ pub fn mint_nft<'a>(
     uri: String,
     user: &Signer<'a>,
     creator: &AccountInfo<'a>,
-    creator_bump: u8,
+    creator_seeds: &[&[u8]],
     mint: &AccountInfo<'a>,
     mint_metadata: &AccountInfo<'a>,
     master_edition: &AccountInfo<'a>,
@@ -346,7 +348,7 @@ pub fn mint_nft<'a>(
             rent.clone(),
             token_metadata_program.to_account_info()
         ],
-        &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
+        &[creator_seeds]
     ).expect("create_metadata_accounts failed.");
 
     invoke_signed(
@@ -371,7 +373,7 @@ pub fn mint_nft<'a>(
             rent.clone(),
             token_metadata_program.to_account_info()
         ],
-        &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
+        &[creator_seeds]
     )?;
 
     invoke_signed(
@@ -388,7 +390,7 @@ pub fn mint_nft<'a>(
             creator.clone(),
             token_metadata_program.to_account_info()
         ],
-        &[&[PREFIX, PREFIX_POTION, &[creator_bump]]]
+        &[creator_seeds]
     )?;
 
     Ok(())
