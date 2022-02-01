@@ -2,7 +2,7 @@
 
 import * as anchor from '@project-serum/anchor';
 import * as serumCmn from '@project-serum/common';
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 const TokenInstructions = require("@project-serum/serum").TokenInstructions;
 
 // Our own sleep function.
@@ -120,6 +120,36 @@ async function createMintToAccountInstrs(
     }),
   ];
 }
+
+export const createAssociatedTokenAccountInstruction = (
+  associatedTokenAddress: anchor.web3.PublicKey,
+  payer: anchor.web3.PublicKey,
+  walletAddress: anchor.web3.PublicKey,
+  splTokenMintAddress: anchor.web3.PublicKey
+) => {
+  const keys = [
+    { pubkey: payer, isSigner: true, isWritable: true },
+    { pubkey: associatedTokenAddress, isSigner: false, isWritable: true },
+    { pubkey: walletAddress, isSigner: false, isWritable: false },
+    { pubkey: splTokenMintAddress, isSigner: false, isWritable: false },
+    {
+      pubkey: anchor.web3.SystemProgram.programId,
+      isSigner: false,
+      isWritable: false,
+    },
+    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    {
+      pubkey: anchor.web3.SYSVAR_RENT_PUBKEY,
+      isSigner: false,
+      isWritable: false,
+    },
+  ];
+  return new anchor.web3.TransactionInstruction({
+    keys,
+    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+    data: Buffer.from([]),
+  });
+};
 
 export {
   TOKEN_PROGRAM_ID,
