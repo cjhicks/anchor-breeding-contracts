@@ -6,6 +6,7 @@ import { createMint, createTokenAccount, getTokenAccount } from '@project-serum/
 import { createAssociatedTokenAccountInstruction, mintToAccount } from './utils';
 import { PublicKey } from '@solana/web3.js';
 import { TokenInstructions } from '@project-serum/serum';
+import { v4 as uuidv4 } from 'uuid';
 
 const { SystemProgram, SYSVAR_RENT_PUBKEY } = anchor.web3;
 const assert = require("assert");
@@ -23,9 +24,10 @@ describe('breeding_cooldown', () => {
 
   const connection = anchor.getProvider().connection;
   const program = (<any>anchor).workspace.BreedingCooldown as Program<BreedingCooldown>;
-  const PREFIX = Buffer.from(anchor.utils.bytes.utf8.encode('bapeBreedingTest18'));
+  const PREFIX = Buffer.from(anchor.utils.bytes.utf8.encode('bapeBrd2'));
   const PREFIX_POTION = Buffer.from(anchor.utils.bytes.utf8.encode('potion'));
   const PREFIX_COUNT = Buffer.from(anchor.utils.bytes.utf8.encode('count'));
+  const PREFIX_URI = Buffer.from(anchor.utils.bytes.utf8.encode('uri'));
   const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
     'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
   );
@@ -124,79 +126,125 @@ describe('breeding_cooldown', () => {
     ]
   }
 
-  it('Creates first potion', async () => {
-    // Potion
-    const [potionCountKey, ] = await potionCountAddress();
-    const potionMint = anchor.web3.Keypair.generate();
-    // const potionMintKey = await createMint(program.provider, userPubKey, 0);
-    // const [potionMint, ] = await pda([potionMintKey.toBuffer()]);
-    const [potionStateKey, ] = await potionStateAddress(potionMint.publicKey);
-    const [potionCreatorKey, potionCreatorBump] = await potionCreatorAddress();
-    const [potionMintMetadataKey, ] = await metadataAddress(potionMint.publicKey);
-    const [potionMasterEditionKey, ] = await masterEditionAddress(potionMint.publicKey);
-    const [potionTokenKey, ] = await associatedTokenAddress(potionMint.publicKey);
+  it('Initializes a vector of URIs',async () => {
+      const [urisKey, _] = await pda([PREFIX, PREFIX_URI])
 
-    // BAPE
-    const tokenMintKey = await createMint(program.provider, userPubKey, 0);
-    let tokenUserAccountKey = await createTokenAccount(program.provider, tokenMintKey, userPubKey);
-    await mintToAccount(program.provider, tokenMintKey, tokenUserAccountKey, 500, userPubKey);
-
-    // Parents
-    const nft1 = anchor.web3.Keypair.generate();
-    const nft2 = anchor.web3.Keypair.generate();
-    const [nft1StateKey, ] = await nftStateAddress(nft1.publicKey);
-    const [nft2StateKey, ] = await nftStateAddress(nft2.publicKey);
-
-    // const instructions = await preInstructions(potionMint.publicKey, potionTokenKey);
-  
-    console.log(potionMint.publicKey.toString());
-
-    await program.rpc.createPotion(potionCreatorBump, {
-      accounts: {
-        user: userPubKey,
-        potionCount: potionCountKey,
-        potionMint: potionMint.publicKey,
-        potionState: potionStateKey,
-        potionCreator: potionCreatorKey,
-        potionMintMetadata: potionMintMetadataKey,
-        potionMasterEdition: potionMasterEditionKey,
-        potionToken: potionTokenKey,
-        tokenUserAccount: tokenUserAccountKey,
-        tokenMint: tokenMintKey,
-        nft1: nft1.publicKey,
-        nft1State: nft1StateKey,
-        nft2: nft2.publicKey,
-        nft2State: nft2StateKey,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-        rent: SYSVAR_RENT_PUBKEY
-      },
-      signers: [potionMint],
-      // preInstructions: instructions
-    })
+      await program.rpc.initUris({
+        accounts: {
+          user: userPubKey,
+          uris: urisKey,
+          systemProgram: SystemProgram.programId
+        }
+      })
     
-    // Assert potion was initialized properly
-    let potionState = await program.account.potionState.fetch(potionStateKey)
-    assert(potionState.createdTimestamp.toNumber() > 0)
+      // Assert URI is an empty vector
+      let uris = await program.account.uris.fetch(urisKey)
+      assert((uris.relativeUris as string[]).length == 0);
+  })
 
-    // TODO: potion count
+  it('Adds URIs to vector',async () => {
+    const [urisKey, _] = await pda([PREFIX, PREFIX_URI])
 
-    // // Assert both NFT metadata match potion
-    // let nft1Metadata = await program.account.nftMetadata.fetch(nft1MetadataPubKey)
-    // assert(nft1Metadata.authority.equals(userPubKey))
-    // assert(nft1Metadata.lastBredTimestamp.toNumber() == potionAccount.createdTimestamp.toNumber())
-    // assert(nft1Metadata.nft.equals(potionAccount.nft1))
+    // with 10k bytes, got to 248 strings. 50k bytes is too big
+    // using Vec<u8> got same thing... can we compress bytes to an int?
+    let NUM_URIS = 1000; 
+    let expectedUris = [];
+    for (let i = 0; i < NUM_URIS; i++) {
+      console.log(i);
+      let relativeUri = uuidv4()
+      expectedUris.push(relativeUri)
+      await program.rpc.addUri(relativeUri, {
+        accounts: {
+          user: userPubKey,
+          uris: urisKey,
+          systemProgram: SystemProgram.programId
+        }
+      })
+    }
 
-    // let nft2Metadata = await program.account.nftMetadata.fetch(nft2MetadataPubKey)
-    // assert(nft2Metadata.authority.equals(userPubKey))
-    // assert(nft2Metadata.lastBredTimestamp.toNumber() == potionAccount.createdTimestamp.toNumber())
-    // assert(nft2Metadata.nft.equals(potionAccount.nft2))
+    let uris = await program.account.uris.fetch(urisKey)
+    let relativeUris = uris.relativeUris as string[]
+    // assert all URI's are there
+    assert(relativeUris.length == NUM_URIS);
+    // Assert URI's are returned in order they're added
+    for (let i = 0; i < NUM_URIS; i++) {
+      assert(relativeUris[i] == expectedUris[i]);
+    }
+})
 
-    // // Assert that 350 $BAPE was burned
-    // let tokenUserAccount = await getTokenAccount(program.provider, tokenUserAccountPubKey);
-    // assert(tokenUserAccount.amount.toNumber() == 150)
-  });
+  // it('Creates first potion', async () => {
+  //   // Potion
+  //   const [potionCountKey, ] = await potionCountAddress();
+  //   const potionMint = anchor.web3.Keypair.generate();
+  //   // const potionMintKey = await createMint(program.provider, userPubKey, 0);
+  //   // const [potionMint, ] = await pda([potionMintKey.toBuffer()]);
+  //   const [potionStateKey, ] = await potionStateAddress(potionMint.publicKey);
+  //   const [potionCreatorKey, potionCreatorBump] = await potionCreatorAddress();
+  //   const [potionMintMetadataKey, ] = await metadataAddress(potionMint.publicKey);
+  //   const [potionMasterEditionKey, ] = await masterEditionAddress(potionMint.publicKey);
+  //   const [potionTokenKey, ] = await associatedTokenAddress(potionMint.publicKey);
+
+  //   // BAPE
+  //   const tokenMintKey = await createMint(program.provider, userPubKey, 0);
+  //   let tokenUserAccountKey = await createTokenAccount(program.provider, tokenMintKey, userPubKey);
+  //   await mintToAccount(program.provider, tokenMintKey, tokenUserAccountKey, 500, userPubKey);
+
+  //   // Parents
+  //   const nft1 = anchor.web3.Keypair.generate();
+  //   const nft2 = anchor.web3.Keypair.generate();
+  //   const [nft1StateKey, ] = await nftStateAddress(nft1.publicKey);
+  //   const [nft2StateKey, ] = await nftStateAddress(nft2.publicKey);
+
+  //   // const instructions = await preInstructions(potionMint.publicKey, potionTokenKey);
+  
+  //   console.log(potionMint.publicKey.toString());
+
+  //   await program.rpc.createPotion(potionCreatorBump, {
+  //     accounts: {
+  //       user: userPubKey,
+  //       potionCount: potionCountKey,
+  //       potionMint: potionMint.publicKey,
+  //       potionState: potionStateKey,
+  //       potionCreator: potionCreatorKey,
+  //       potionMintMetadata: potionMintMetadataKey,
+  //       potionMasterEdition: potionMasterEditionKey,
+  //       potionToken: potionTokenKey,
+  //       tokenUserAccount: tokenUserAccountKey,
+  //       tokenMint: tokenMintKey,
+  //       nft1: nft1.publicKey,
+  //       nft1State: nft1StateKey,
+  //       nft2: nft2.publicKey,
+  //       nft2State: nft2StateKey,
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //       tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+  //       systemProgram: SystemProgram.programId,
+  //       rent: SYSVAR_RENT_PUBKEY
+  //     },
+  //     signers: [potionMint],
+  //     // preInstructions: instructions
+  //   })
+    
+  //   // Assert potion was initialized properly
+  //   let potionState = await program.account.potionState.fetch(potionStateKey)
+  //   assert(potionState.createdTimestamp.toNumber() > 0)
+
+  //   // TODO: potion count
+
+  //   // // Assert both NFT metadata match potion
+  //   // let nft1Metadata = await program.account.nftMetadata.fetch(nft1MetadataPubKey)
+  //   // assert(nft1Metadata.authority.equals(userPubKey))
+  //   // assert(nft1Metadata.lastBredTimestamp.toNumber() == potionAccount.createdTimestamp.toNumber())
+  //   // assert(nft1Metadata.nft.equals(potionAccount.nft1))
+
+  //   // let nft2Metadata = await program.account.nftMetadata.fetch(nft2MetadataPubKey)
+  //   // assert(nft2Metadata.authority.equals(userPubKey))
+  //   // assert(nft2Metadata.lastBredTimestamp.toNumber() == potionAccount.createdTimestamp.toNumber())
+  //   // assert(nft2Metadata.nft.equals(potionAccount.nft2))
+
+  //   // // Assert that 350 $BAPE was burned
+  //   // let tokenUserAccount = await getTokenAccount(program.provider, tokenUserAccountPubKey);
+  //   // assert(tokenUserAccount.amount.toNumber() == 150)
+  // });
 
   // it('Fails to create 2nd potion because <7 days since nfts were used', async () => {
   //   const potion = anchor.web3.Keypair.generate();

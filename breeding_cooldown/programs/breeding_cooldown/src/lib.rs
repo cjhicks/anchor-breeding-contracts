@@ -8,18 +8,32 @@ use spl_token_metadata::{
         state::{Creator, Data},
 };
 use solana_program::instruction::{Instruction,AccountMeta};
+use std::convert::TryInto;
 
 
 declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw");
 
 const PREFIX: &[u8] = b"bapeBrd2";
 const PREFIX_POTION: &[u8] = b"ptn";
-// const PREFIX_COUNT: &[u8] = b"cnt";
 const PREFIX_MUTANT: &[u8] = b"mtnt";
+const PREFIX_URI: &[u8] = b"uri";
 
 #[program]
 pub mod breeding_cooldown {
     use super::*;
+
+    pub fn init_uris(ctx: Context<InitUris>) -> ProgramResult {
+        let uris = &mut ctx.accounts.uris;
+        uris.relative_uris = vec![];
+        Ok(())
+    }
+
+    pub fn add_uri(ctx: Context<AddUri>, relative_uri: String) -> ProgramResult {
+        let uris = &mut ctx.accounts.uris;
+        // let x = u128::from_le_bytes((.as_bytes()[1..4]).try_into().unwrap());
+        uris.relative_uris.push(relative_uri);
+        Ok(())
+    }
 
     // TODO: check NFT is of BASC collection
     pub fn create_potion(ctx: Context<CreatePotion>, creator_bump: u8) -> ProgramResult {
@@ -262,12 +276,34 @@ pub struct React<'info> {
     #[account(mut)]
     pub mutant_token: AccountInfo<'info>,
 
+    // TODO: add uris (if they'll fit)
+
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
     // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
     pub token_metadata_program: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
     pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction()]
+pub struct InitUris<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(init, seeds = [PREFIX, PREFIX_URI], bump, payer = user, space = 8 + 10000)]
+    pub uris: Account<'info, Uris>,
+    pub system_program: AccountInfo<'info>
+}
+
+#[derive(Accounts)]
+#[instruction(relative_uri: String)]
+pub struct AddUri<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(mut, seeds = [PREFIX, PREFIX_URI], bump)]
+    pub uris: Account<'info, Uris>,
+    pub system_program: AccountInfo<'info>
 }
 
 #[error]
@@ -485,3 +521,9 @@ pub struct NftState {
 // pub struct Counter {
 //     pub count: u16
 // }
+
+#[account]
+#[derive(Default)]
+pub struct Uris {
+    pub relative_uris: Vec<String>
+}
