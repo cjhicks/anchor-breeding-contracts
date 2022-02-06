@@ -57,7 +57,7 @@ describe('breeding_cooldown', () => {
   it('Adds URIs to vector',async () => {
     // with 10k bytes, got to 248 strings. 50k bytes is too big
     // using Vec<u8> got same thing... can we compress bytes to an int?
-    let NUM_URIS = 1000; 
+    let NUM_URIS = 10; 
     let expectedUris = [];
     for (let i = 0; i < NUM_URIS; i++) {
       console.log(i);
