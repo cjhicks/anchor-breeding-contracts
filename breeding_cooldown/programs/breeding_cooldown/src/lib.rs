@@ -8,18 +8,97 @@ use spl_token_metadata::{
         state::{Creator, Data},
 };
 use solana_program::instruction::{Instruction,AccountMeta};
+// use std::convert::TryInto;
+use std::{cell::RefMut, cell::RefCell};
+use arrayref::array_ref;
 
 
 declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw");
 
 const PREFIX: &[u8] = b"bapeBrd2";
 const PREFIX_POTION: &[u8] = b"ptn";
-// const PREFIX_COUNT: &[u8] = b"cnt";
 const PREFIX_MUTANT: &[u8] = b"mtnt";
+const PREFIX_URI: &[u8] = b"uri";
+// TODO: ADD OTHERS IF NEEDED
+const CONFIG_ARRAY_START: usize = 8; // key
+const MAX_URI_LENGTH: usize = 50;
+const CONFIG_LINE_SIZE: usize = MAX_URI_LENGTH; // 4 + MAX_URI_LENGTH;
 
 #[program]
 pub mod breeding_cooldown {
     use super::*;
+
+    pub fn init_uris(ctx: Context<InitUris>) -> ProgramResult {
+        let uris = &mut ctx.accounts.uris;
+        // uris.relative_uris = vec![];
+        Ok(())
+    }
+
+    pub fn add_uri(ctx: Context<AddUri>, index: u32, relative_uri: String) -> ProgramResult {
+        let uris = &mut ctx.accounts.uris;
+        let account = uris.to_account_info();
+        let mut data = account.data.borrow_mut();
+        // let current_count = get_config_count(&account.data.borrow_mut())?;
+        // let x = u128::from_le_bytes((.as_bytes()[1..4]).try_into().unwrap());
+        // uris.relative_uris.push(relative_uri);
+        // while array_of_zeroes.len() < MAX_NAME_LENGTH - line.name.len() {
+        //     array_of_zeroes.push(0u8);
+        // }
+        // let name = line.name.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
+        let mut array_of_zeroes = vec![];
+        while array_of_zeroes.len() < MAX_URI_LENGTH - relative_uri.len() {
+            array_of_zeroes.push(0u8);
+        }
+
+        let uri = relative_uri.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
+        let as_vec = &uri.as_bytes().to_vec();
+        let serialized: &[u8] = &as_vec.as_slice();//[4..];
+        let position = CONFIG_ARRAY_START + 4 + (index as usize) * CONFIG_LINE_SIZE;
+        let fixed_config_lines_len: usize = 1; // only adding one at a time
+        let array_slice: &mut [u8] =
+            &mut data[position..position + fixed_config_lines_len * CONFIG_LINE_SIZE];
+        array_slice.copy_from_slice(serialized);
+
+        // TODO: bit masking? Do I care if I don't count?
+        // let bit_mask_vec_start = CONFIG_ARRAY_START
+        // + 4
+        // + (candy_machine.data.items_available as usize) * CONFIG_LINE_SIZE
+        // + 4;
+        // let my_position_in_vec = bit_mask_vec_start + (index as usize)
+        //     .checked_div(8)
+        //     .ok_or(ErrorCode::NumericalOverflowError)?;
+
+        // fixed_config_lines.push(ConfigLine { name, uri })
+
+        Ok(())
+    }
+
+    // TODO: this is a placeholder so we can test
+    pub fn deserialize_uri(ctx: Context<DeserializeUri>, index: u32) -> ProgramResult {
+        // TODO: call get_config_line logic here
+        let uris = &mut ctx.accounts.uris;
+        let account = uris.to_account_info();
+        let mut arr = account.data.borrow_mut();
+
+        let data_array = &mut arr[CONFIG_ARRAY_START + 4 + (index as usize) * (CONFIG_LINE_SIZE)
+        ..CONFIG_ARRAY_START + 4 + ((index as usize) + 1) * (CONFIG_LINE_SIZE)];
+
+        // TODO: fix this...
+        let mut uri_vec = vec![];
+        for i in 0..MAX_URI_LENGTH {
+            if data_array[i] != 0u8 {
+                uri_vec.push(data_array[i]);
+            }
+        }
+        // uri_vec.push(data_array[0..5]); // 8 + MAX_URI_LENGTH
+
+        ctx.accounts.deserialized.relative_uri = match String::from_utf8(uri_vec) {
+            Ok(val) => val,
+            Err(_) => return Err(ErrorCode::InvalidString.into()),
+        };
+
+        Ok(())
+    }
 
     // TODO: check NFT is of BASC collection
     pub fn create_potion(ctx: Context<CreatePotion>, creator_bump: u8) -> ProgramResult {
@@ -262,12 +341,38 @@ pub struct React<'info> {
     #[account(mut)]
     pub mutant_token: AccountInfo<'info>,
 
+    // TODO: add uris (if they'll fit)
+
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
     // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
     pub token_metadata_program: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
     pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction()]
+pub struct InitUris<'info> {
+    // #[account(mut)]
+    pub user: Signer<'info>,
+    // #[account(init, seeds = [PREFIX, PREFIX_URI], bump, payer = user, space = 8 + 10000)]
+    // pub uris: Account<'info, Uris>,
+    #[account(zero, rent_exempt = skip, constraint = uris.to_account_info().owner == program_id && uris.to_account_info().data_len() >= get_space_for_uris()?)]
+    pub uris: UncheckedAccount<'info>,
+
+    pub system_program: AccountInfo<'info>,
+    pub rent: Sysvar<'info, Rent>
+}
+
+#[derive(Accounts)]
+#[instruction(index: u32, relative_uri: String)]
+pub struct AddUri<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(mut, constraint = uris.to_account_info().owner == program_id)]  // , seeds = [PREFIX, PREFIX_URI], bump
+    pub uris: AccountInfo<'info>, //<'info, Uris>,
+    pub system_program: AccountInfo<'info>
 }
 
 #[error]
@@ -282,6 +387,64 @@ pub enum ErrorCode {
     NftUsedTooSoon,
     #[msg("No more mutants available.")]
     NoMoreMutants,
+    #[msg("Invalid String")]
+    InvalidString
+}
+
+fn get_space_for_uris() -> core::result::Result<usize, ProgramError> {
+    let items_available = 3333;
+    let num = CONFIG_ARRAY_START
+            + 4
+            + (items_available as usize) * CONFIG_LINE_SIZE
+            + 8;
+            // + 2 * ((data
+            //     .items_available
+            //     .checked_div(8)
+            //     .ok_or(ErrorCode::NumericalOverflowError)?
+            //     + 1) as usize);
+
+    Ok(num)
+}
+
+#[account]
+#[derive(Default)]
+pub struct PotionState {
+    pub created_timestamp: u64
+}
+
+#[account]
+#[derive(Default)]
+pub struct NftState {
+    pub last_bred_timestamp: u64
+}
+
+// #[account]
+// #[derive(Default)]
+// pub struct Counter {
+//     pub count: u16
+// }
+
+// TODO: this is a placeholder so we can test
+#[derive(Accounts)]
+#[instruction(index: u32)]
+pub struct DeserializeUri<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(init, payer = user, space = 8 + 100)]
+    pub deserialized: Account<'info, DeserializedUri>,
+    #[account(mut, constraint = uris.to_account_info().owner == program_id)]
+    pub uris: AccountInfo<'info>,
+    pub system_program: AccountInfo<'info>
+}
+
+#[account]
+#[derive(Default)]
+pub struct DeserializedUri {
+    pub relative_uri: String
+}
+
+pub fn get_config_count(data: &RefMut<&mut [u8]>) -> core::result::Result<usize, ProgramError> {
+    return Ok(u32::from_le_bytes(*array_ref![data, CONFIG_ARRAY_START, 4]) as usize);
 }
 
 fn get_timestamp() -> u64 {
@@ -467,21 +630,3 @@ pub fn create_master_edition(
             .unwrap(),
     }
 }
-
-#[account]
-#[derive(Default)]
-pub struct PotionState {
-    pub created_timestamp: u64
-}
-
-#[account]
-#[derive(Default)]
-pub struct NftState {
-    pub last_bred_timestamp: u64
-}
-
-// #[account]
-// #[derive(Default)]
-// pub struct Counter {
-//     pub count: u16
-// }
