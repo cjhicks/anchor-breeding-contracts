@@ -19,7 +19,9 @@ const PREFIX: &[u8] = b"bapeBrd2";
 const PREFIX_POTION: &[u8] = b"ptn";
 const PREFIX_MUTANT: &[u8] = b"mtnt";
 const PREFIX_URI: &[u8] = b"uri";
-const MAX_URI_LENGTH: usize = 36;
+// TODO: ADD OTHERS IF NEEDED
+const CONFIG_ARRAY_START: usize = 8; // key
+const MAX_URI_LENGTH: usize = 50;
 const CONFIG_LINE_SIZE: usize = MAX_URI_LENGTH; // 4 + MAX_URI_LENGTH;
 
 #[program]
@@ -84,7 +86,9 @@ pub mod breeding_cooldown {
         // TODO: fix this...
         let mut uri_vec = vec![];
         for i in 0..MAX_URI_LENGTH {
-            uri_vec.push(data_array[i]);
+            if data_array[i] != 0u8 {
+                uri_vec.push(data_array[i]);
+            }
         }
         // uri_vec.push(data_array[0..5]); // 8 + MAX_URI_LENGTH
 
@@ -350,11 +354,15 @@ pub struct React<'info> {
 #[derive(Accounts)]
 #[instruction()]
 pub struct InitUris<'info> {
-    #[account(mut)]
+    // #[account(mut)]
     pub user: Signer<'info>,
-    #[account(init, seeds = [PREFIX, PREFIX_URI], bump, payer = user, space = 8 + 10000)]
-    pub uris: Account<'info, Uris>,
-    pub system_program: AccountInfo<'info>
+    // #[account(init, seeds = [PREFIX, PREFIX_URI], bump, payer = user, space = 8 + 10000)]
+    // pub uris: Account<'info, Uris>,
+    #[account(zero, rent_exempt = skip, constraint = uris.to_account_info().owner == program_id && uris.to_account_info().data_len() >= get_space_for_uris()?)]
+    pub uris: UncheckedAccount<'info>,
+
+    pub system_program: AccountInfo<'info>,
+    pub rent: Sysvar<'info, Rent>
 }
 
 #[derive(Accounts)]
@@ -362,8 +370,8 @@ pub struct InitUris<'info> {
 pub struct AddUri<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    #[account(mut, seeds = [PREFIX, PREFIX_URI], bump)]
-    pub uris: Account<'info, Uris>,
+    #[account(mut, constraint = uris.to_account_info().owner == program_id)]  // , seeds = [PREFIX, PREFIX_URI], bump
+    pub uris: AccountInfo<'info>, //<'info, Uris>,
     pub system_program: AccountInfo<'info>
 }
 
@@ -381,6 +389,21 @@ pub enum ErrorCode {
     NoMoreMutants,
     #[msg("Invalid String")]
     InvalidString
+}
+
+fn get_space_for_uris() -> core::result::Result<usize, ProgramError> {
+    let items_available = 3333;
+    let num = CONFIG_ARRAY_START
+            + 4
+            + (items_available as usize) * CONFIG_LINE_SIZE
+            + 8;
+            // + 2 * ((data
+            //     .items_available
+            //     .checked_div(8)
+            //     .ok_or(ErrorCode::NumericalOverflowError)?
+            //     + 1) as usize);
+
+    Ok(num)
 }
 
 #[account]
@@ -401,15 +424,6 @@ pub struct NftState {
 //     pub count: u16
 // }
 
-// TODO: ADD OTHERS IF NEEDED
-const CONFIG_ARRAY_START: usize = 8; // key
-
-#[account]
-#[derive(Default)]
-pub struct Uris {
-    // pub relative_uris: Vec<String>
-}
-
 // TODO: this is a placeholder so we can test
 #[derive(Accounts)]
 #[instruction(index: u32)]
@@ -418,8 +432,8 @@ pub struct DeserializeUri<'info> {
     pub user: Signer<'info>,
     #[account(init, payer = user, space = 8 + 100)]
     pub deserialized: Account<'info, DeserializedUri>,
-    #[account(mut, seeds = [PREFIX, PREFIX_URI], bump)]
-    pub uris: Account<'info, Uris>,
+    #[account(mut, constraint = uris.to_account_info().owner == program_id)]
+    pub uris: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>
 }
 
