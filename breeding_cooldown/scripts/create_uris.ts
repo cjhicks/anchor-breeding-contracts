@@ -64,6 +64,7 @@ describe('breeding_cooldown', () => {
       })
     }
 
+    console.log('URIs pubKey: ' + urisKey);
 })
 
 const CONFIG_ARRAY_START: number = 8; // key
