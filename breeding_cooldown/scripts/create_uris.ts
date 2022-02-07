@@ -1,15 +1,17 @@
 import * as anchor from '@project-serum/anchor';
 import { Program } from '@project-serum/anchor';
 import { BreedingCooldown } from '../target/types/breeding_cooldown';
-import { ASSOCIATED_TOKEN_PROGRAM_ID, MintLayout, Token } from '@solana/spl-token';
-import { createMint, createTokenAccount, getTokenAccount } from '@project-serum/common';
-import { createAssociatedTokenAccountInstruction, mintToAccount } from './utils';
 import { PublicKey } from '@solana/web3.js';
 import { TokenInstructions } from '@project-serum/serum';
 import { v4 as uuidv4 } from 'uuid';
+import urisJson from './uris.json';
 
-const { SystemProgram, SYSVAR_RENT_PUBKEY } = anchor.web3;
+const { SystemProgram } = anchor.web3;
 const assert = require("assert");
+
+let uris = (urisJson["uris"] as string[])
+let NUM_URIS = uris.length; 
+console.log(NUM_URIS)
 
 describe('breeding_cooldown', () => {
 
@@ -24,13 +26,6 @@ describe('breeding_cooldown', () => {
 
   const connection = anchor.getProvider().connection;
   const program = (<any>anchor).workspace.BreedingCooldown as Program<BreedingCooldown>;
-  const PREFIX = Buffer.from(anchor.utils.bytes.utf8.encode('bapeBrd2'));
-  const PREFIX_POTION = Buffer.from(anchor.utils.bytes.utf8.encode('potion'));
-  const PREFIX_COUNT = Buffer.from(anchor.utils.bytes.utf8.encode('count'));
-  const PREFIX_URI = Buffer.from(anchor.utils.bytes.utf8.encode('uri'));
-  const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
-    'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
-  );
 
   const wallet = anchor.getProvider().wallet;
   const userPubKey = wallet.publicKey;
@@ -49,7 +44,7 @@ describe('breeding_cooldown', () => {
         },
         signers: [urisAccount],
         preInstructions: [
-          await createUrisAccount(urisKey)
+          await createUrisAccount(urisKey, NUM_URIS)
         ]
       })
   })
@@ -57,12 +52,9 @@ describe('breeding_cooldown', () => {
   it('Adds URIs to vector',async () => {
     // with 10k bytes, got to 248 strings. 50k bytes is too big
     // using Vec<u8> got same thing... can we compress bytes to an int?
-    let NUM_URIS = 10; 
-    let expectedUris = [];
     for (let i = 0; i < NUM_URIS; i++) {
       console.log(i);
-      let relativeUri = uuidv4()
-      expectedUris.push(relativeUri)
+      let relativeUri = uris[i].replace('https://arweave.net/', '')
       await program.rpc.addUri(i, relativeUri, {
         accounts: {
           user: userPubKey,
@@ -72,24 +64,7 @@ describe('breeding_cooldown', () => {
       })
     }
 
-    for (let i = 0; i < NUM_URIS; i++) {
-      console.log('testing ' + i);
-      let expectedUri = expectedUris[i];
-      const deserialized = anchor.web3.Keypair.generate();
-      await program.rpc.deserializeUri(i, {
-        accounts: {
-          user: userPubKey,
-          uris: urisKey,
-          deserialized: deserialized.publicKey,
-          systemProgram: SystemProgram.programId
-        },
-        signers: [deserialized]
-      })
-
-      let deserializedUri = await program.account.deserializedUri.fetch(deserialized.publicKey);
-      assert(deserializedUri.relativeUri.toString() == expectedUri.toString());
-    }
-
+    console.log('URIs pubKey: ' + urisKey);
 })
 
 const CONFIG_ARRAY_START: number = 8; // key
