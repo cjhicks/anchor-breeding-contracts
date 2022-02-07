@@ -35,7 +35,7 @@ pub mod breeding_cooldown {
         Ok(())
     }
 
-    pub fn add_uri(ctx: Context<AddUri>, index: u32, relative_uri: String) -> ProgramResult {
+    pub fn add_uri(ctx: Context<AddUri>, index: u16, relative_uri: String) -> ProgramResult {
         let uris = &mut ctx.accounts.uris;
         let account = uris.to_account_info();
         let mut data = account.data.borrow_mut();
@@ -64,7 +64,7 @@ pub mod breeding_cooldown {
     }
 
     // TODO: this is a placeholder so we can test
-    pub fn deserialize_uri(ctx: Context<DeserializeUri>, index: u32) -> ProgramResult {
+    pub fn deserialize_uri(ctx: Context<DeserializeUri>, index: u16) -> ProgramResult {
         ctx.accounts.deserialized.relative_uri = get_uri(&ctx.accounts.uris, index);
 
         Ok(())
@@ -158,12 +158,13 @@ pub mod breeding_cooldown {
         anchor_spl::token::burn(burn_ctx, 1)
             .expect("burn failed.");
 
-        // TODO: get custom URI for this mutant!!!
-        let uri = r"https://arweave.net/OEbN9FS8F4_P7nj_WoWoXuaour_oN4BVSZRbxrXTStc";
+        let count = ctx.accounts.mutant_count.count;
+        let name = format!("{}{}", "Mutant #", count + 1);
+        let uri = format!("{}{}", r"https://arweave.net/", get_uri(&ctx.accounts.uris, count));
         mint_nft(
-            "Mutant #367".to_string(),
+            name,
             "BASE".to_string(),
-            uri.to_string(),
+            uri,
             &ctx.accounts.user,
             &ctx.accounts.mutant_creator,
             &[PREFIX, PREFIX_MUTANT, &[creator_bump]],
@@ -311,8 +312,6 @@ pub struct React<'info> {
     #[account(mut)]
     pub mutant_token: AccountInfo<'info>,
 
-    // TODO: add uris (if they'll fit)
-
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
     // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
@@ -338,7 +337,7 @@ pub struct InitUris<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(index: u32, relative_uri: String)]
+#[instruction(index: u16, relative_uri: String)]
 pub struct AddUri<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -383,7 +382,7 @@ pub struct Counter {
 
 // TODO: this is a placeholder so we can test
 #[derive(Accounts)]
-#[instruction(index: u32)]
+#[instruction(index: u16)]
 pub struct DeserializeUri<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -398,10 +397,6 @@ pub struct DeserializeUri<'info> {
 #[derive(Default)]
 pub struct DeserializedUri {
     pub relative_uri: String
-}
-
-pub fn get_config_count(data: &RefMut<&mut [u8]>) -> core::result::Result<usize, ProgramError> {
-    return Ok(u32::from_le_bytes(*array_ref![data, CONFIG_ARRAY_START, 4]) as usize);
 }
 
 fn get_timestamp() -> u64 {
@@ -422,7 +417,7 @@ fn get_space_for_uris() -> core::result::Result<usize, ProgramError> {
     Ok(num)
 }
 
-fn get_uri<'a>(uris: &AccountInfo<'a>, index: u32) -> String {
+fn get_uri<'a>(uris: &AccountInfo<'a>, index: u16) -> String {
     let account = uris.to_account_info();
     let mut arr = account.data.borrow_mut();
 
