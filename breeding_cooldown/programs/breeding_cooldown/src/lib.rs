@@ -10,17 +10,15 @@ use spl_token_metadata::{
 use solana_program::instruction::{Instruction,AccountMeta};
 // use std::convert::TryInto;
 use std::{cell::RefMut, cell::RefCell};
-use arrayref::array_ref;
 
 
 declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw");
 
-const PREFIX: &[u8] = b"bapeBrd2";
+const PREFIX: &[u8] = b"bapeBrd3";
 const PREFIX_POTION: &[u8] = b"ptn";
 const PREFIX_MUTANT: &[u8] = b"mtnt";
 const PREFIX_COUNT: &[u8] = b"cnt";
-const PREFIX_URI: &[u8] = b"uri";
-// TODO: ADD OTHERS IF NEEDED
+
 const CONFIG_ARRAY_START: usize = 8; // key
 const MAX_URI_LENGTH: usize = 50;
 const CONFIG_LINE_SIZE: usize = MAX_URI_LENGTH; // 4 + MAX_URI_LENGTH;
