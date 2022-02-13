@@ -7,6 +7,7 @@ use spl_token_metadata::{
         instruction::{update_metadata_accounts, CreateMetadataAccountArgs, CreateMasterEditionArgs, MetadataInstruction}, //create_metadata_accounts
         state::{Creator, Data}
 };
+use spl_token_metadata::state::Metadata;
 use solana_program::instruction::{Instruction,AccountMeta};
 // use std::convert::TryInto;
 use std::{cell::RefMut, cell::RefCell};
@@ -60,22 +61,17 @@ pub mod breeding_cooldown {
 
         Ok(())
     }
-
-    // TODO: check NFT is of BASC collection
     pub fn create_potion(ctx: Context<CreatePotion>, creator_bump: u8) -> ProgramResult {
         let potion_mint = &mut ctx.accounts.potion_mint;
         let user = &ctx.accounts.user;
         let token_program = &ctx.accounts.token_program;
 
+
+        // verify NFT is of BASC collection
         // assert_owned_by(&ctx.accounts.nft_1, &user.key())?;
         // assert_owned_by(&ctx.accounts.nft_2, &user.key())?;
-        // assert_update_authority_is_correct(metadata: &Metadata, update_authority_info: &AccountInfo);
-        // TODO: assert metadata update authority. If run into stack issues, make 2nd command to assert and create state.
-        let nft_update_authority = "7CqaVHL7Wv6RzHoRDH4govgy38uUfj75UVgCLVwrKhus".parse::<Pubkey>().unwrap(); // TODO: 4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i
-        if (ctx.accounts.nft_1_metadata.update_authority != nft_update_authority) || 
-            (ctx.accounts.nft_2_metadata.update_authority != nft_update_authority) {
-            return Err(ErrorCode::WrongNft.into());
-        }
+        verify_collection(Metadata::from_account_info(&ctx.accounts.nft_1_metadata)?, *ctx.accounts.nft_1.key)?;
+        verify_collection(Metadata::from_account_info(&ctx.accounts.nft_2_metadata)?, *ctx.accounts.nft_2.key)?;
 
         // check if 7 days since last breeding
         let timestamp = get_timestamp();
@@ -282,12 +278,12 @@ pub struct CreatePotion<'info> {
     // TODO: figure out seeds::program so we can assert update_authority for collection. 
     // right now, we're getting the "account owned different program" error
     pub nft_1: AccountInfo<'info>,
-    #[account(
-        seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_1.key.as_ref()],
-        // seeds::program = *token_metadata_program.key,
-        bump
-    )]
-    pub nft_1_metadata: Account<'info, Metadata>,
+    // #[account(
+    //     seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_1.key.as_ref()],
+    //     bump,
+    //     seeds::program = token_metadata_program.key()
+    // )]
+    pub nft_1_metadata: AccountInfo<'info>, //<'info, Metadata>,
     // TODO: come back for validations
     // constraint= config.to_account_info().owner
     #[account(init_if_needed, seeds = [PREFIX, nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
@@ -302,11 +298,11 @@ pub struct CreatePotion<'info> {
     //     bump,
     //     // seeds::program = token_metadata_program.key()
     // )]
-    pub nft_2_metadata: Account<'info, Metadata>,
+    pub nft_2_metadata: AccountInfo<'info>, 
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
-    // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
+    // #[account(address = .as_ref())]
     pub token_metadata_program: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
     pub rent: Sysvar<'info, Rent>,
@@ -434,7 +430,15 @@ pub enum ErrorCode {
     NoMoreMutants,
     #[msg("Invalid String")]
     InvalidString,
-    #[msg("Used Wrong NFT")]
+    #[msg("No Creators")]
+    NoCreators,
+    #[msg("Wrong Creator")]
+    WrongCreator,
+    #[msg("Unverified Creator")]
+    UnverifiedCreator,
+    #[msg("Wrong Update Authority")]
+    WrongUpdateAuthority,
+    #[msg("Wrong NFT")]
     WrongNft
 }
 
@@ -456,10 +460,10 @@ pub struct Counter {
     pub count: u16
 }
 
-#[account]
-pub struct Metadata {
-    pub update_authority: Pubkey,
-}
+// #[account]
+// pub struct Metadata {
+//     pub update_authority: Pubkey
+// }
 
 // TODO: this is a placeholder so we can test
 #[derive(Accounts)]
@@ -512,6 +516,32 @@ fn get_uri<'a>(uris: &AccountInfo<'a>, index: u16) -> String {
         }
     }
     return String::from_utf8(uri_vec).unwrap();
+}
+
+fn verify_collection(metadata: Metadata, nft: Pubkey) -> ProgramResult {
+    let nft_update_authority = "7CqaVHL7Wv6RzHoRDH4govgy38uUfj75UVgCLVwrKhus".parse::<Pubkey>().unwrap(); // TODO: 4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i
+    let creator_0_key = "6vHjQxYUwk9DNuJNHfRWSfH1UTuikVayP9h3H4iYW2TD".parse::<Pubkey>().unwrap(); // TODO: 4SRNmDuitWA1fZfg72WSThoKd2ENEnQeo4NFPcn3xunf
+    match metadata.data.creators {
+        None => { return Err(ErrorCode::NoCreators.into()) }
+        Some(creators) => {
+            match creators.first() {
+                None => { return Err(ErrorCode::NoCreators.into()) }
+                Some(creator) => {
+                    if metadata.update_authority != nft_update_authority {
+                        return Err(ErrorCode::WrongUpdateAuthority.into());
+                    } else if metadata.mint != nft { 
+                        return Err(ErrorCode::WrongNft.into());
+                    } else if creator.address != creator_0_key {
+                        return Err(ErrorCode::WrongCreator.into());
+                    } else if !creator.verified {
+                        return Err(ErrorCode::UnverifiedCreator.into());
+                    }  else {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    };
 }
 
 pub fn mint_nft<'a>(
