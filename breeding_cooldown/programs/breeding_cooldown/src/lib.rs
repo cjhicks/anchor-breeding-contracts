@@ -5,16 +5,15 @@ use solana_program::{sysvar};
 use solana_program::program::{invoke_signed};
 use spl_token_metadata::{
         instruction::{update_metadata_accounts, CreateMetadataAccountArgs, CreateMasterEditionArgs, MetadataInstruction}, //create_metadata_accounts
-        state::{Creator, Data},
+        state::{Creator, Data}
 };
 use solana_program::instruction::{Instruction,AccountMeta};
 // use std::convert::TryInto;
 use std::{cell::RefMut, cell::RefCell};
 
-
 declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw");
 
-const PREFIX: &[u8] = b"bapeBrd3";
+const PREFIX: &[u8] = b"bapeBrd5";
 const PREFIX_POTION: &[u8] = b"ptn";
 const PREFIX_MUTANT: &[u8] = b"mtnt";
 const PREFIX_COUNT: &[u8] = b"cnt";
@@ -67,6 +66,16 @@ pub mod breeding_cooldown {
         let potion_mint = &mut ctx.accounts.potion_mint;
         let user = &ctx.accounts.user;
         let token_program = &ctx.accounts.token_program;
+
+        // assert_owned_by(&ctx.accounts.nft_1, &user.key())?;
+        // assert_owned_by(&ctx.accounts.nft_2, &user.key())?;
+        // assert_update_authority_is_correct(metadata: &Metadata, update_authority_info: &AccountInfo);
+        // TODO: assert metadata update authority. If run into stack issues, make 2nd command to assert and create state.
+        let nft_update_authority = "7CqaVHL7Wv6RzHoRDH4govgy38uUfj75UVgCLVwrKhus".parse::<Pubkey>().unwrap(); // TODO: 4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i
+        if (ctx.accounts.nft_1_metadata.update_authority != nft_update_authority) || 
+            (ctx.accounts.nft_2_metadata.update_authority != nft_update_authority) {
+            return Err(ErrorCode::WrongNft.into());
+        }
 
         // check if 7 days since last breeding
         let timestamp = get_timestamp();
@@ -268,7 +277,17 @@ pub struct CreatePotion<'info> {
     )]
     pub token_mint: AccountInfo<'info>,  // $BAPE mint, generic enough for any token though
     // #[account(owner = *user.key)]
+
+
+    // TODO: figure out seeds::program so we can assert update_authority for collection. 
+    // right now, we're getting the "account owned different program" error
     pub nft_1: AccountInfo<'info>,
+    #[account(
+        seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_1.key.as_ref()],
+        // seeds::program = *token_metadata_program.key,
+        bump
+    )]
+    pub nft_1_metadata: Account<'info, Metadata>,
     // TODO: come back for validations
     // constraint= config.to_account_info().owner
     #[account(init_if_needed, seeds = [PREFIX, nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
@@ -278,6 +297,12 @@ pub struct CreatePotion<'info> {
     pub nft_2: AccountInfo<'info>,
     #[account(init_if_needed, seeds = [PREFIX, nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_2_state: Account<'info, NftState>,
+    // #[account(
+    //     seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_2.key.as_ref()],
+    //     bump,
+    //     // seeds::program = token_metadata_program.key()
+    // )]
+    pub nft_2_metadata: Account<'info, Metadata>,
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
@@ -408,7 +433,9 @@ pub enum ErrorCode {
     #[msg("No more mutants available.")]
     NoMoreMutants,
     #[msg("Invalid String")]
-    InvalidString
+    InvalidString,
+    #[msg("Used Wrong NFT")]
+    WrongNft
 }
 
 #[account]
@@ -427,6 +454,11 @@ pub struct NftState {
 #[derive(Default)]
 pub struct Counter {
     pub count: u16
+}
+
+#[account]
+pub struct Metadata {
+    pub update_authority: Pubkey,
 }
 
 // TODO: this is a placeholder so we can test
@@ -513,7 +545,7 @@ pub fn mint_nft<'a>(
                     share: 20,
                 },
                 Creator{
-                    address: "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap().key(),
+                    address: "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap(),
                     verified: false,
                     share: 80,
                 },
@@ -526,7 +558,7 @@ pub fn mint_nft<'a>(
                 share: 0,
             },
             Creator{
-                address: "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap().key(),
+                address: "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap(),
                 verified: false,
                 share: 100,
             },
