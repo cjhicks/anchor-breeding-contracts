@@ -5,16 +5,15 @@ use solana_program::{sysvar};
 use solana_program::program::{invoke_signed};
 use spl_token_metadata::{
         instruction::{update_metadata_accounts, CreateMetadataAccountArgs, CreateMasterEditionArgs, MetadataInstruction}, //create_metadata_accounts
-        state::{Creator, Data},
+        state::{Creator, Data}
 };
+use spl_token_metadata::state::Metadata;
 use solana_program::instruction::{Instruction,AccountMeta};
-// use std::convert::TryInto;
 use std::{cell::RefMut, cell::RefCell};
-
 
 declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw");
 
-const PREFIX: &[u8] = b"bapeBrd3";
+const PREFIX: &[u8] = b"bapeBrd7";
 const PREFIX_POTION: &[u8] = b"ptn";
 const PREFIX_MUTANT: &[u8] = b"mtnt";
 const PREFIX_COUNT: &[u8] = b"cnt";
@@ -37,13 +36,7 @@ pub mod breeding_cooldown {
         let uris = &mut ctx.accounts.uris;
         let account = uris.to_account_info();
         let mut data = account.data.borrow_mut();
-        // let current_count = get_config_count(&account.data.borrow_mut())?;
-        // let x = u128::from_le_bytes((.as_bytes()[1..4]).try_into().unwrap());
-        // uris.relative_uris.push(relative_uri);
-        // while array_of_zeroes.len() < MAX_NAME_LENGTH - line.name.len() {
-        //     array_of_zeroes.push(0u8);
-        // }
-        // let name = line.name.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
+
         let mut array_of_zeroes = vec![];
         while array_of_zeroes.len() < MAX_URI_LENGTH - relative_uri.len() {
             array_of_zeroes.push(0u8);
@@ -67,12 +60,21 @@ pub mod breeding_cooldown {
 
         Ok(())
     }
-
-    // TODO: check NFT is of BASC collection
     pub fn create_potion(ctx: Context<CreatePotion>, creator_bump: u8) -> ProgramResult {
         let potion_mint = &mut ctx.accounts.potion_mint;
         let user = &ctx.accounts.user;
         let token_program = &ctx.accounts.token_program;
+
+        // TODO: verify NFT is owned by wallet
+        // if *ctx.accounts.nft_1.owner != *user.key {
+        //     return Err(ErrorCode::NftNotOwned.into())
+        // }
+        // if *ctx.accounts.nft_2.owner != *user.key {
+        //     return Err(ErrorCode::NftNotOwned.into())
+        // }
+        // verify NFT is of BASC collection
+        verify_collection(Metadata::from_account_info(&ctx.accounts.nft_1_metadata)?, *ctx.accounts.nft_1.key)?;
+        verify_collection(Metadata::from_account_info(&ctx.accounts.nft_2_metadata)?, *ctx.accounts.nft_2.key)?;
 
         // check if 7 days since last breeding
         let timestamp = get_timestamp();
@@ -123,7 +125,8 @@ pub mod breeding_cooldown {
             token_program,
             &ctx.accounts.token_metadata_program,
             &ctx.accounts.system_program,
-            &ctx.accounts.rent.to_account_info()
+            &ctx.accounts.rent.to_account_info(),
+            false
         )?;
 
         // ctx.accounts.potion_count.count += 1;
@@ -132,15 +135,13 @@ pub mod breeding_cooldown {
     }
 
     pub fn react(ctx: Context<React>, creator_bump: u8) -> ProgramResult {
-        // TODO: check potion is of collection
-
-        // check if 7 days since last breeding
+        // check if 10 days since last breeding
         let potion_state = &ctx.accounts.potion_state;
         let timestamp = get_timestamp();
         let breed_min_timestamp = get_breed_min_timestamp(timestamp);
-        // if potion_state.created_timestamp > breed_min_timestamp {
-        //     return Err(ErrorCode::NftUsedTooSoon.into());
-        // }
+        if potion_state.created_timestamp > breed_min_timestamp {
+            return Err(ErrorCode::NftUsedTooSoon.into());
+        }
 
         /*
         Burn potion
@@ -173,7 +174,8 @@ pub mod breeding_cooldown {
             &ctx.accounts.token_program,
             &ctx.accounts.token_metadata_program,
             &ctx.accounts.system_program,
-            &ctx.accounts.rent.to_account_info()
+            &ctx.accounts.rent.to_account_info(),
+            true
         )?;
 
         ctx.accounts.mutant_count.count += 1;
@@ -181,54 +183,63 @@ pub mod breeding_cooldown {
         Ok(())
     }
 
-    // pub fn fast_react(ctx: Context<FastReact>) -> ProgramResult {
-    //     /*
-    //     Validations (function)
-    //     1. User is Authority on Potion
-    //     2. NFT metadata matches Potion and Authority
-    //     3. User has enough $BAPE
-    //     4. Verify Mint on egg is legit
-    //     */
-    //     let user_key = *ctx.accounts.user.key;
-    //     let potion = &mut ctx.accounts.potion;
-    //     let nft_1_state = &ctx.accounts.nft_1_state;
-    //     let nft_2_state = &ctx.accounts.nft_2_state;
-    //     let token_program = &ctx.accounts.token_program;
-    //     let user = &ctx.accounts.user;
-    //     let token_mint = ctx.accounts.token_mint.to_account_info();
+    pub fn fast_react(ctx: Context<FastReact>, creator_bump: u8) -> ProgramResult {
+        let token_program = &ctx.accounts.token_program;
+        let user = &ctx.accounts.user;
+        let token_mint = ctx.accounts.token_mint.to_account_info();
 
-    //     if potion.authority != user_key || nft_1_state.authority != user_key || nft_2_state.authority != user_key {
-    //         return Err(ErrorCode::Unauthorized.into());
-    //     }
+        let token_user_account = &ctx.accounts.token_user_account;
+        let fast_burn_price = 250 * 10_u64.pow(9);
+        let burn_ctx = CpiContext::new(
+            token_program.clone(),
+            anchor_spl::token::Burn {
+                to: token_user_account.to_account_info(),
+                mint: token_mint,
+                authority: user.to_account_info(),
+            }
+        );
+        anchor_spl::token::burn(burn_ctx, fast_burn_price)
+            .expect("burn failed.");
 
-    //     // if !((potion.nft1 == nft_1_state.nft && potion.nft2 == nft_2_state.nft) ||
-    //     //     (potion.nft1 == nft_2_state.nft && potion.nft2 == nft_1_state.nft)) {
-    //     //     return Err(ErrorCode::Mismatch.into());
-    //     // }
-    //     // TODO: do fast reaction (burn more $BAPE?)
-    //     let token_user_account = &ctx.accounts.token_user_account;
-    //     let fast_burn_price = 250;
-    //     if token_user_account.amount < fast_burn_price {
-    //         return Err(ErrorCode::InsufficientFunds.into())
-    //     }
+        /*
+        Burn potion
+        */
+        let burn_ctx = CpiContext::new(
+            ctx.accounts.token_program.clone(),
+            anchor_spl::token::Burn {
+                to: ctx.accounts.potion_token.to_account_info(),
+                mint: ctx.accounts.potion_mint.to_account_info(),
+                authority: ctx.accounts.user.to_account_info(),
+            }
+        );
+        anchor_spl::token::burn(burn_ctx, 1)
+            .expect("burn failed.");
 
-    //     // TODO: mint new NFT
-    //     // anchor_spl::token::transfer(ctx: CpiContext<'a, 'b, 'c, 'info, Transfer<'info>>, amount: u64)
+        let count = ctx.accounts.mutant_count.count;
+        let name = format!("{}{}", "Mutant #", count + 1);
+        let uri = format!("{}{}", r"https://arweave.net/", get_uri(&ctx.accounts.uris, count));
+        mint_nft(
+            name,
+            "BASE".to_string(),
+            uri,
+            &ctx.accounts.user,
+            &ctx.accounts.mutant_creator,
+            &[PREFIX, PREFIX_MUTANT, &[creator_bump]],
+            &ctx.accounts.mutant_mint,
+            &mut ctx.accounts.mutant_mint_metadata,
+            &ctx.accounts.mutant_master_edition,
+            &ctx.accounts.mutant_token,
+            &ctx.accounts.token_program,
+            &ctx.accounts.token_metadata_program,
+            &ctx.accounts.system_program,
+            &ctx.accounts.rent.to_account_info(),
+            true
+        )?;
 
-    //     // TODO: after mint successful, burn 175 $BAPE
-    //     let burn_ctx = CpiContext::new(
-    //         token_program.clone(),
-    //         anchor_spl::token::Burn {
-    //             to: token_user_account.to_account_info(),
-    //             mint: token_mint,
-    //             authority: user.to_account_info(),
-    //         }
-    //     );
-    //     anchor_spl::token::burn(burn_ctx, fast_burn_price)
-    //         .expect("burn failed.");
+        ctx.accounts.mutant_count.count += 1;
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -263,7 +274,17 @@ pub struct CreatePotion<'info> {
     )]
     pub token_mint: AccountInfo<'info>,  // $BAPE mint, generic enough for any token though
     // #[account(owner = *user.key)]
+
+
+    // TODO: figure out seeds::program so we can assert update_authority for collection. 
+    // right now, we're getting the "account owned different program" error
     pub nft_1: AccountInfo<'info>,
+    // #[account(
+    //     seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_1.key.as_ref()],
+    //     bump,
+    //     seeds::program = token_metadata_program.key()
+    // )]
+    pub nft_1_metadata: AccountInfo<'info>, //<'info, Metadata>,
     // TODO: come back for validations
     // constraint= config.to_account_info().owner
     #[account(init_if_needed, seeds = [PREFIX, nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
@@ -273,10 +294,16 @@ pub struct CreatePotion<'info> {
     pub nft_2: AccountInfo<'info>,
     #[account(init_if_needed, seeds = [PREFIX, nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_2_state: Account<'info, NftState>,
+    // #[account(
+    //     seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_2.key.as_ref()],
+    //     bump,
+    //     // seeds::program = token_metadata_program.key()
+    // )]
+    pub nft_2_metadata: AccountInfo<'info>, 
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
-    // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
+    // #[account(address = .as_ref())]
     pub token_metadata_program: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
     pub rent: Sysvar<'info, Rent>,
@@ -293,6 +320,52 @@ pub struct React<'info> {
     pub potion_token: AccountInfo<'info>,
     #[account(seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump)]
     pub potion_state: Account<'info, PotionState>,
+    #[account(
+        init_if_needed,
+        seeds = [PREFIX.as_ref(), PREFIX_MUTANT, PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
+        constraint = mutant_count.count < (3333 as u16) @ ErrorCode::NoMoreMutants
+    )]
+    pub mutant_count: Account<'info, Counter>,
+    #[account(mut)]
+    pub mutant_mint: AccountInfo<'info>,
+    #[account(mut, seeds = [PREFIX, PREFIX_MUTANT], bump=creator_bump)]
+    pub mutant_creator: AccountInfo<'info>,
+    #[account(mut)]
+    pub mutant_mint_metadata: AccountInfo<'info>,
+    #[account(mut)]
+    pub mutant_master_edition: AccountInfo<'info>,
+    #[account(mut)]
+    pub mutant_token: AccountInfo<'info>,
+
+    #[account(executable, "token_program.key == &anchor_spl::token::ID")]
+    pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
+    // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
+    pub token_metadata_program: AccountInfo<'info>,
+    #[account(mut, constraint = uris.to_account_info().owner == program_id)]
+    pub uris: AccountInfo<'info>,
+    pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(creator_bump: u8)]
+pub struct FastReact<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(mut)]
+    pub potion_mint: AccountInfo<'info>,
+    // TODO: creator check?
+    #[account(mut)]
+    pub potion_token: AccountInfo<'info>,
+    #[account(seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump)]
+    pub potion_state: Account<'info, PotionState>,
+    #[account(mut)]
+    pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
+    #[account(
+        mut,
+        constraint = token_mint.key() == "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap() @ ErrorCode::WrongToken
+    )]
+    pub token_mint: AccountInfo<'info>,  // $BAPE mint, generic enough for any token though
     #[account(
         init_if_needed,
         seeds = [PREFIX.as_ref(), PREFIX_MUTANT, PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
@@ -357,7 +430,19 @@ pub enum ErrorCode {
     #[msg("No more mutants available.")]
     NoMoreMutants,
     #[msg("Invalid String")]
-    InvalidString
+    InvalidString,
+    #[msg("No Creators")]
+    NoCreators,
+    #[msg("Wrong Creator")]
+    WrongCreator,
+    #[msg("Unverified Creator")]
+    UnverifiedCreator,
+    #[msg("Wrong Update Authority")]
+    WrongUpdateAuthority,
+    #[msg("Wrong NFT")]
+    WrongNft,
+    #[msg("User is not owner of NFT")]
+    NftNotOwned
 }
 
 #[account]
@@ -431,6 +516,32 @@ fn get_uri<'a>(uris: &AccountInfo<'a>, index: u16) -> String {
     return String::from_utf8(uri_vec).unwrap();
 }
 
+fn verify_collection(metadata: Metadata, nft: Pubkey) -> ProgramResult {
+    let nft_update_authority = "7CqaVHL7Wv6RzHoRDH4govgy38uUfj75UVgCLVwrKhus".parse::<Pubkey>().unwrap(); // TODO: 4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i
+    let creator_0_key = "6vHjQxYUwk9DNuJNHfRWSfH1UTuikVayP9h3H4iYW2TD".parse::<Pubkey>().unwrap(); // TODO: 4SRNmDuitWA1fZfg72WSThoKd2ENEnQeo4NFPcn3xunf
+    match metadata.data.creators {
+        None => { return Err(ErrorCode::NoCreators.into()) }
+        Some(creators) => {
+            match creators.first() {
+                None => { return Err(ErrorCode::NoCreators.into()) }
+                Some(creator) => {
+                    if metadata.update_authority != nft_update_authority {
+                        return Err(ErrorCode::WrongUpdateAuthority.into());
+                    } else if metadata.mint != nft { 
+                        return Err(ErrorCode::WrongNft.into());
+                    } else if creator.address != creator_0_key {
+                        return Err(ErrorCode::WrongCreator.into());
+                    } else if !creator.verified {
+                        return Err(ErrorCode::UnverifiedCreator.into());
+                    }  else {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    };
+}
+
 pub fn mint_nft<'a>(
     name: String,
     symbol: String,
@@ -446,19 +557,41 @@ pub fn mint_nft<'a>(
     token_metadata_program: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
     rent: &AccountInfo<'a>,
+    user_is_creator: bool
 ) -> ProgramResult {
-    let creators_ptn = vec![
-        Creator{
-            address: creator.key(),
-            verified: true,
-            share: 0,
-        },
-        Creator{
-            address: "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap().key(),
-            verified: false,
-            share: 100,
-        },
-    ];
+    let creators_ptn = match user_is_creator {
+        true => {
+            vec![
+                Creator{
+                    address: creator.key(),
+                    verified: true,
+                    share: 0,
+                },
+                Creator{
+                    address: *user.key,
+                    verified: false,
+                    share: 20,
+                },
+                Creator{
+                    address: "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap(),
+                    verified: false,
+                    share: 80,
+                },
+            ]
+        }
+        false => vec![
+            Creator{
+                address: creator.key(),
+                verified: true,
+                share: 0,
+            },
+            Creator{
+                address: "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap(),
+                verified: false,
+                share: 100,
+            },
+        ]
+    };
 
     invoke_signed(
         &create_metadata_accounts(    
