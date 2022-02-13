@@ -9,12 +9,11 @@ use spl_token_metadata::{
 };
 use spl_token_metadata::state::Metadata;
 use solana_program::instruction::{Instruction,AccountMeta};
-// use std::convert::TryInto;
 use std::{cell::RefMut, cell::RefCell};
 
 declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw");
 
-const PREFIX: &[u8] = b"bapeBrd5";
+const PREFIX: &[u8] = b"bapeBrd7";
 const PREFIX_POTION: &[u8] = b"ptn";
 const PREFIX_MUTANT: &[u8] = b"mtnt";
 const PREFIX_COUNT: &[u8] = b"cnt";
@@ -66,10 +65,14 @@ pub mod breeding_cooldown {
         let user = &ctx.accounts.user;
         let token_program = &ctx.accounts.token_program;
 
-
+        // TODO: verify NFT is owned by wallet
+        // if *ctx.accounts.nft_1.owner != *user.key {
+        //     return Err(ErrorCode::NftNotOwned.into())
+        // }
+        // if *ctx.accounts.nft_2.owner != *user.key {
+        //     return Err(ErrorCode::NftNotOwned.into())
+        // }
         // verify NFT is of BASC collection
-        // assert_owned_by(&ctx.accounts.nft_1, &user.key())?;
-        // assert_owned_by(&ctx.accounts.nft_2, &user.key())?;
         verify_collection(Metadata::from_account_info(&ctx.accounts.nft_1_metadata)?, *ctx.accounts.nft_1.key)?;
         verify_collection(Metadata::from_account_info(&ctx.accounts.nft_2_metadata)?, *ctx.accounts.nft_2.key)?;
 
@@ -132,15 +135,13 @@ pub mod breeding_cooldown {
     }
 
     pub fn react(ctx: Context<React>, creator_bump: u8) -> ProgramResult {
-        // TODO: check potion is of collection
-
-        // check if 7 days since last breeding
+        // check if 10 days since last breeding
         let potion_state = &ctx.accounts.potion_state;
         let timestamp = get_timestamp();
         let breed_min_timestamp = get_breed_min_timestamp(timestamp);
-        // if potion_state.created_timestamp > breed_min_timestamp {
-        //     return Err(ErrorCode::NftUsedTooSoon.into());
-        // }
+        if potion_state.created_timestamp > breed_min_timestamp {
+            return Err(ErrorCode::NftUsedTooSoon.into());
+        }
 
         /*
         Burn potion
@@ -188,7 +189,7 @@ pub mod breeding_cooldown {
         let token_mint = ctx.accounts.token_mint.to_account_info();
 
         let token_user_account = &ctx.accounts.token_user_account;
-        let fast_burn_price = 250;
+        let fast_burn_price = 250 * 10_u64.pow(9);
         let burn_ctx = CpiContext::new(
             token_program.clone(),
             anchor_spl::token::Burn {
@@ -439,7 +440,9 @@ pub enum ErrorCode {
     #[msg("Wrong Update Authority")]
     WrongUpdateAuthority,
     #[msg("Wrong NFT")]
-    WrongNft
+    WrongNft,
+    #[msg("User is not owner of NFT")]
+    NftNotOwned
 }
 
 #[account]
@@ -459,11 +462,6 @@ pub struct NftState {
 pub struct Counter {
     pub count: u16
 }
-
-// #[account]
-// pub struct Metadata {
-//     pub update_authority: Pubkey
-// }
 
 // TODO: this is a placeholder so we can test
 #[derive(Accounts)]
@@ -571,7 +569,7 @@ pub fn mint_nft<'a>(
                 },
                 Creator{
                     address: *user.key,
-                    verified: true,
+                    verified: false,
                     share: 20,
                 },
                 Creator{
