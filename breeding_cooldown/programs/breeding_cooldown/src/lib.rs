@@ -11,9 +11,9 @@ use spl_token_metadata::state::Metadata;
 use solana_program::instruction::{Instruction,AccountMeta};
 use std::{cell::RefMut, cell::RefCell};
 
-declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw");
+declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw"); // TODO: update
 
-const PREFIX: &[u8] = b"bapeBrd7";
+const PREFIX: &[u8] = b"bapeBrd";
 const PREFIX_POTION: &[u8] = b"ptn";
 const PREFIX_MUTANT: &[u8] = b"mtnt";
 const PREFIX_COUNT: &[u8] = b"cnt";
@@ -270,7 +270,7 @@ pub struct CreatePotion<'info> {
     pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
     #[account(
         mut,
-        constraint = token_mint.key() == "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap() @ ErrorCode::WrongToken
+        constraint = token_mint.key() == "BgeRyFWWGHeVouqfHfcXUxmvfkgekhrXYVqQWf63kpJB".parse::<Pubkey>().unwrap() @ ErrorCode::WrongToken
     )]
     pub token_mint: AccountInfo<'info>,  // $BAPE mint, generic enough for any token though
     // #[account(owner = *user.key)]
@@ -363,7 +363,7 @@ pub struct FastReact<'info> {
     pub token_user_account: Account<'info, anchor_spl::token::TokenAccount>,  // User's $BAPE account, this token type should match mint account
     #[account(
         mut,
-        constraint = token_mint.key() == "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap() @ ErrorCode::WrongToken
+        constraint = token_mint.key() == "BgeRyFWWGHeVouqfHfcXUxmvfkgekhrXYVqQWf63kpJB".parse::<Pubkey>().unwrap() @ ErrorCode::WrongToken
     )]
     pub token_mint: AccountInfo<'info>,  // $BAPE mint, generic enough for any token though
     #[account(
@@ -517,8 +517,8 @@ fn get_uri<'a>(uris: &AccountInfo<'a>, index: u16) -> String {
 }
 
 fn verify_collection(metadata: Metadata, nft: Pubkey) -> ProgramResult {
-    let nft_update_authority = "7CqaVHL7Wv6RzHoRDH4govgy38uUfj75UVgCLVwrKhus".parse::<Pubkey>().unwrap(); // TODO: 4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i
-    let creator_0_key = "6vHjQxYUwk9DNuJNHfRWSfH1UTuikVayP9h3H4iYW2TD".parse::<Pubkey>().unwrap(); // TODO: 4SRNmDuitWA1fZfg72WSThoKd2ENEnQeo4NFPcn3xunf
+    let nft_update_authority = "4dKSgRptpvveQ73kJvzw88gF7YPs4hoWfrJnzBhbmi1i".parse::<Pubkey>().unwrap();
+    let creator_0_key = "4SRNmDuitWA1fZfg72WSThoKd2ENEnQeo4NFPcn3xunf".parse::<Pubkey>().unwrap();
     match metadata.data.creators {
         None => { return Err(ErrorCode::NoCreators.into()) }
         Some(creators) => {
