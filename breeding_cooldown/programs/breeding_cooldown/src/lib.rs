@@ -11,7 +11,7 @@ use spl_token_metadata::state::Metadata;
 use solana_program::instruction::{Instruction,AccountMeta};
 use std::{cell::RefMut, cell::RefCell};
 
-declare_id!("9CNNoWiwBJzQzW72ycRvZyFQLqkyiN4TkmzmNooiTBsw");
+declare_id!("9u5z6XtPcZaPSV4jM7NLpjdBgjZVVY4fa4J1mm2ZW2bD");
 
 const PREFIX: &[u8] = b"bapeBrd7";
 const PREFIX_POTION: &[u8] = b"ptn";
@@ -54,24 +54,18 @@ pub mod breeding_cooldown {
         Ok(())
     }
 
-    // TODO: this is a placeholder so we can test
-    pub fn deserialize_uri(ctx: Context<DeserializeUri>, index: u16) -> ProgramResult {
-        ctx.accounts.deserialized.relative_uri = get_uri(&ctx.accounts.uris, index);
-
-        Ok(())
-    }
     pub fn create_potion(ctx: Context<CreatePotion>, creator_bump: u8) -> ProgramResult {
         let potion_mint = &mut ctx.accounts.potion_mint;
         let user = &ctx.accounts.user;
         let token_program = &ctx.accounts.token_program;
 
         // TODO: verify NFT is owned by wallet
-        // if *ctx.accounts.nft_1.owner != *user.key {
-        //     return Err(ErrorCode::NftNotOwned.into())
-        // }
-        // if *ctx.accounts.nft_2.owner != *user.key {
-        //     return Err(ErrorCode::NftNotOwned.into())
-        // }
+        if *ctx.accounts.nft_1_associated_token.owner != *user.to_account_info().key {
+            return Err(ErrorCode::NftNotOwned.into())
+        }
+        if *ctx.accounts.nft_2_associated_token.owner != *user.to_account_info().key {
+            return Err(ErrorCode::NftNotOwned.into())
+        }
         // verify NFT is of BASC collection
         verify_collection(Metadata::from_account_info(&ctx.accounts.nft_1_metadata)?, *ctx.accounts.nft_1.key)?;
         verify_collection(Metadata::from_account_info(&ctx.accounts.nft_2_metadata)?, *ctx.accounts.nft_2.key)?;
@@ -247,12 +241,6 @@ pub mod breeding_cooldown {
 pub struct CreatePotion<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    // #[account(
-    //     init_if_needed,
-    //     seeds = [PREFIX.as_ref(), PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
-    //     constraint = potion_count.count < (3333 as u16) @ ErrorCode::NoMorePotions
-    // )]
-    // pub potion_count: Account<'info, Counter>,
     #[account(mut)]
     pub potion_mint: AccountInfo<'info>,
     #[account(init, seeds = [PREFIX.as_ref(), potion_mint.key.as_ref()], bump, payer = user, space = 8 + 80)]
@@ -284,6 +272,7 @@ pub struct CreatePotion<'info> {
     //     bump,
     //     seeds::program = token_metadata_program.key()
     // )]
+    pub nft_1_associated_token: AccountInfo<'info>,
     pub nft_1_metadata: AccountInfo<'info>, //<'info, Metadata>,
     // TODO: come back for validations
     // constraint= config.to_account_info().owner
@@ -294,12 +283,13 @@ pub struct CreatePotion<'info> {
     pub nft_2: AccountInfo<'info>,
     #[account(init_if_needed, seeds = [PREFIX, nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_2_state: Account<'info, NftState>,
+    pub nft_2_metadata: AccountInfo<'info>,
     // #[account(
-    //     seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_2.key.as_ref()],
+    //     seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_1.key.as_ref()],
     //     bump,
-    //     // seeds::program = token_metadata_program.key()
+    //     seeds::program = token_metadata_program.key()
     // )]
-    pub nft_2_metadata: AccountInfo<'info>, 
+    pub nft_2_associated_token: AccountInfo<'info>,
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
@@ -461,25 +451,6 @@ pub struct NftState {
 #[derive(Default)]
 pub struct Counter {
     pub count: u16
-}
-
-// TODO: this is a placeholder so we can test
-#[derive(Accounts)]
-#[instruction(index: u16)]
-pub struct DeserializeUri<'info> {
-    #[account(mut)]
-    pub user: Signer<'info>,
-    #[account(init, payer = user, space = 8 + 100)]
-    pub deserialized: Account<'info, DeserializedUri>,
-    #[account(mut, constraint = uris.to_account_info().owner == program_id)]
-    pub uris: AccountInfo<'info>,
-    pub system_program: AccountInfo<'info>
-}
-
-#[account]
-#[derive(Default)]
-pub struct DeserializedUri {
-    pub relative_uri: String
 }
 
 fn get_timestamp() -> u64 {
