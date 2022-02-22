@@ -7,9 +7,12 @@ use spl_token_metadata::{
         instruction::{update_metadata_accounts, CreateMetadataAccountArgs, CreateMasterEditionArgs, MetadataInstruction}, //create_metadata_accounts
         state::{Creator, Data}
 };
-use spl_token_metadata::state::Metadata;
+use spl_token_metadata::state::{Metadata};
+use anchor_lang::solana_program::program_pack::Pack;
+use spl_token::state::Account as SplTokenAccount;
 use solana_program::instruction::{Instruction,AccountMeta};
 use std::{cell::RefMut, cell::RefCell};
+use borsh::{BorshDeserialize, BorshSerialize};
 
 declare_id!("9u5z6XtPcZaPSV4jM7NLpjdBgjZVVY4fa4J1mm2ZW2bD");
 
@@ -60,10 +63,9 @@ pub mod breeding_cooldown {
         let token_program = &ctx.accounts.token_program;
 
         // TODO: verify NFT is owned by wallet
-        if *ctx.accounts.nft_1_associated_token.owner != *user.to_account_info().key {
-            return Err(ErrorCode::NftNotOwned.into())
-        }
-        if *ctx.accounts.nft_2_associated_token.owner != *user.to_account_info().key {
+        let ata_1 = SplTokenAccount::unpack(&ctx.accounts.nft_1_associated_token.data.borrow())?;
+        let ata_2 = SplTokenAccount::unpack(&ctx.accounts.nft_2_associated_token.data.borrow())?;
+        if ata_1.owner != *user.key || ata_2.owner != *user.key {
             return Err(ErrorCode::NftNotOwned.into())
         }
         // verify NFT is of BASC collection
@@ -74,11 +76,8 @@ pub mod breeding_cooldown {
         let timestamp = get_timestamp();
         let breed_min_timestamp = get_breed_min_timestamp(timestamp);
         let nft_1_state = &mut ctx.accounts.nft_1_state;
-        if nft_1_state.last_bred_timestamp > breed_min_timestamp {
-            return Err(ErrorCode::NftUsedTooSoon.into());
-        }
         let nft_2_state = &mut ctx.accounts.nft_2_state;
-        if nft_2_state.last_bred_timestamp > breed_min_timestamp {
+        if nft_1_state.last_bred_timestamp > breed_min_timestamp || nft_2_state.last_bred_timestamp > breed_min_timestamp {
             return Err(ErrorCode::NftUsedTooSoon.into());
         }
 
@@ -98,8 +97,7 @@ pub mod breeding_cooldown {
                 authority: user.to_account_info(),
             }
         );
-        anchor_spl::token::burn(burn_ctx, 500 * 10_u64.pow(9))
-            .expect("burn failed.");
+        anchor_spl::token::burn(burn_ctx, 500 * 10_u64.pow(9))?;
 
         /* 
         Mint new NFT for potion
@@ -453,6 +451,16 @@ pub struct Counter {
     pub count: u16
 }
 
+// #[account]
+// pub struct ATAData {
+//     pub owner: Pubkey
+// }
+
+// #[account]
+// pub struct ATA {
+//     pub data: ATAData
+// }
+
 fn get_timestamp() -> u64 {
     return Clock::get().unwrap().unix_timestamp as u64;
 }
@@ -591,7 +599,7 @@ pub fn mint_nft<'a>(
             token_metadata_program.to_account_info()
         ],
         &[creator_seeds]
-    ).expect("create_metadata_accounts failed.");
+    )?;
 
     invoke_signed(
         &create_master_edition(
