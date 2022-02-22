@@ -56,10 +56,8 @@ pub mod breeding_cooldown {
         Ok(())
     }
 
-    pub fn create_potion(ctx: Context<CreatePotion>, creator_bump: u8) -> ProgramResult {
-        let potion_mint = &mut ctx.accounts.potion_mint;
+    pub fn prep_potion(ctx: Context<PrepPotion>) -> ProgramResult {
         let user = &ctx.accounts.user;
-        let token_program = &ctx.accounts.token_program;
 
         // TODO: verify NFT is owned by wallet
         let ata_1 = SplTokenAccount::unpack(&ctx.accounts.nft_1_associated_token.data.borrow())?;
@@ -70,6 +68,29 @@ pub mod breeding_cooldown {
         // verify NFT is of BASC collection
         verify_collection(Metadata::from_account_info(&ctx.accounts.nft_1_metadata)?, *ctx.accounts.nft_1.key)?;
         verify_collection(Metadata::from_account_info(&ctx.accounts.nft_2_metadata)?, *ctx.accounts.nft_2.key)?;
+
+        ctx.accounts.associated_nfts.user = *user.key;
+
+        Ok(())
+    }
+
+    pub fn create_potion(ctx: Context<CreatePotion>, creator_bump: u8) -> ProgramResult {
+        let potion_mint = &mut ctx.accounts.potion_mint;
+        let user = &ctx.accounts.user;
+        let token_program = &ctx.accounts.token_program;
+
+        // TODO: verify NFT is owned by wallet
+        // let ata_1 = SplTokenAccount::unpack(&ctx.accounts.nft_1_associated_token.data.borrow())?;
+        // let ata_2 = SplTokenAccount::unpack(&ctx.accounts.nft_2_associated_token.data.borrow())?;
+        // if ata_1.owner != *user.key || ata_2.owner != *user.key {
+        //     return Err(ErrorCode::NftNotOwned.into())
+        // }
+        // // verify NFT is of BASC collection
+        // verify_collection(Metadata::from_account_info(&ctx.accounts.nft_1_metadata)?, *ctx.accounts.nft_1.key)?;
+        // verify_collection(Metadata::from_account_info(&ctx.accounts.nft_2_metadata)?, *ctx.accounts.nft_2.key)?;
+        if ctx.accounts.associated_nfts.user != *user.key {
+            return Err(ErrorCode::NftNotOwned.into())
+        }
 
         // check if 7 days since last breeding
         let timestamp = get_timestamp();
@@ -232,6 +253,35 @@ pub mod breeding_cooldown {
 }
 
 #[derive(Accounts)]
+#[instruction()]
+pub struct PrepPotion<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(init_if_needed, seeds = [nft_1.key.as_ref(), nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
+    pub associated_nfts: Account<'info, AssociatedNfts>,
+
+    // #[account(owner = *user.key)]
+    pub nft_1: AccountInfo<'info>,
+    pub nft_1_associated_token: AccountInfo<'info>,
+    pub nft_1_metadata: AccountInfo<'info>, //<'info, Metadata>,
+    // #[account(init_if_needed, seeds = [nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
+    // pub nft_1_state: Account<'info, NftState>,
+    #[account(constraint = nft_2.key() != nft_1.key() @ ErrorCode::SameNFTs)]
+    pub nft_2: AccountInfo<'info>,
+    // #[account(init_if_needed, seeds = [nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
+    // pub nft_2_state: Account<'info, NftState>,
+    pub nft_2_metadata: AccountInfo<'info>,
+    pub nft_2_associated_token: AccountInfo<'info>,
+
+    #[account(executable, "token_program.key == &anchor_spl::token::ID")]
+    pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
+    pub token_metadata_program: AccountInfo<'info>,
+    pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
 #[instruction(creator_bump: u8)]
 pub struct CreatePotion<'info> {
     #[account(mut)]
@@ -256,39 +306,26 @@ pub struct CreatePotion<'info> {
         constraint = token_mint.key() == "2RTsdGVkWJU7DG77ayYTCvZctUVz3L9Crp9vkMDdRt4Y".parse::<Pubkey>().unwrap() @ ErrorCode::WrongToken
     )]
     pub token_mint: AccountInfo<'info>,  // $BAPE mint, generic enough for any token though
-    // #[account(owner = *user.key)]
 
-
-    // TODO: figure out seeds::program so we can assert update_authority for collection. 
-    // right now, we're getting the "account owned different program" error
     pub nft_1: AccountInfo<'info>,
-    // #[account(
-    //     seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_1.key.as_ref()],
-    //     bump,
-    //     seeds::program = token_metadata_program.key()
-    // )]
-    pub nft_1_associated_token: AccountInfo<'info>,
-    pub nft_1_metadata: AccountInfo<'info>, //<'info, Metadata>,
-    // TODO: come back for validations
-    // constraint= config.to_account_info().owner
+    // pub nft_1_associated_token: AccountInfo<'info>,
+    // pub nft_1_metadata: AccountInfo<'info>, //<'info, Metadata>,
+    // // TODO: come back for validations
+    // // constraint= config.to_account_info().owner
     #[account(init_if_needed, seeds = [nft_1.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_1_state: Account<'info, NftState>,
-    // // #[account(owner = *user.key)]
-    #[account(constraint = nft_2.key() != nft_1.key() @ ErrorCode::SameNFTs)]
+    // // // #[account(owner = *user.key)]
+    // #[account(constraint = nft_2.key() != nft_1.key() @ ErrorCode::SameNFTs)]
     pub nft_2: AccountInfo<'info>,
     #[account(init_if_needed, seeds = [nft_2.key.as_ref()], bump, payer = user, space = 8 + 40)]
     pub nft_2_state: Account<'info, NftState>,
-    pub nft_2_metadata: AccountInfo<'info>,
-    // #[account(
-    //     seeds = [b"metadata", token_metadata_program.key().as_ref(), nft_1.key.as_ref()],
-    //     bump,
-    //     seeds::program = token_metadata_program.key()
-    // )]
-    pub nft_2_associated_token: AccountInfo<'info>,
+    // pub nft_2_metadata: AccountInfo<'info>,
+    // pub nft_2_associated_token: AccountInfo<'info>,
+    #[account(seeds = [nft_1.key.as_ref(), nft_2.key.as_ref()], bump)]
+    pub associated_nfts: Account<'info, AssociatedNfts>,
 
     #[account(executable, "token_program.key == &anchor_spl::token::ID")]
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
-    // #[account(address = .as_ref())]
     pub token_metadata_program: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
     pub rent: Sysvar<'info, Rent>,
@@ -446,6 +483,12 @@ pub struct NftState {
 #[derive(Default)]
 pub struct Counter {
     pub count: u16
+}
+
+#[account]
+#[derive(Default)]
+pub struct AssociatedNfts {
+    pub user: Pubkey
 }
 
 fn get_timestamp() -> u64 {
