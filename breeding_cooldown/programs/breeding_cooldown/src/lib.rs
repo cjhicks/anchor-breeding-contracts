@@ -14,7 +14,7 @@ use solana_program::instruction::{Instruction,AccountMeta};
 use std::{cell::RefMut, cell::RefCell};
 use borsh::{BorshDeserialize, BorshSerialize};
 
-declare_id!("9u5z6XtPcZaPSV4jM7NLpjdBgjZVVY4fa4J1mm2ZW2bD");
+declare_id!("Aijq2XhDqCzSRgUy4JuTw3Sg8VKt7m3Rbm9AFfhSJzTN");
 
 const PREFIX_POTION: &[u8] = b"ptn";
 const PREFIX_MUTANT: &[u8] = b"mtnt";
@@ -344,13 +344,13 @@ pub struct React<'info> {
     pub potion_state: Account<'info, PotionState>,
     #[account(
         init_if_needed,
-        seeds = [PREFIX_MUTANT, PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
+        seeds = [PREFIX_MUTANT.as_ref(), PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
         constraint = mutant_count.count < (3333 as u16) @ ErrorCode::NoMoreMutants
     )]
     pub mutant_count: Account<'info, Counter>,
     #[account(mut)]
     pub mutant_mint: AccountInfo<'info>,
-    #[account(mut, seeds = [PREFIX_MUTANT], bump=creator_bump)]
+    #[account(mut, seeds = [PREFIX_MUTANT.as_ref()], bump=creator_bump)]
     pub mutant_creator: AccountInfo<'info>,
     #[account(mut)]
     pub mutant_mint_metadata: AccountInfo<'info>,
@@ -363,6 +363,7 @@ pub struct React<'info> {
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
     // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
     pub token_metadata_program: AccountInfo<'info>,
+    // #[account(mut, constraint = uris.key() == "GNxN5JQsmL7gbC9Z8ujaqL4J1xhiJFa5DTWW43hthQCY".parse::<Pubkey>().unwrap() @ ErrorCode::WrongToken)]
     #[account(mut, constraint = uris.to_account_info().owner == program_id)]
     pub uris: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
@@ -390,13 +391,13 @@ pub struct FastReact<'info> {
     pub token_mint: AccountInfo<'info>,  // $BAPE mint, generic enough for any token though
     #[account(
         init_if_needed,
-        seeds = [PREFIX_MUTANT, PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
+        seeds = [PREFIX_MUTANT.as_ref(), PREFIX_COUNT.as_ref()], bump, payer = user, space = 8 + 30,
         constraint = mutant_count.count < (3333 as u16) @ ErrorCode::NoMoreMutants
     )]
     pub mutant_count: Account<'info, Counter>,
     #[account(mut)]
     pub mutant_mint: AccountInfo<'info>,
-    #[account(mut, seeds = [PREFIX_MUTANT], bump=creator_bump)]
+    #[account(mut, seeds = [PREFIX_MUTANT.as_ref()], bump=creator_bump)]
     pub mutant_creator: AccountInfo<'info>,
     #[account(mut)]
     pub mutant_mint_metadata: AccountInfo<'info>,
@@ -409,6 +410,7 @@ pub struct FastReact<'info> {
     pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
     // #[account(address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s".as_ref())]
     pub token_metadata_program: AccountInfo<'info>,
+    // #[account(mut, constraint = uris.key() == "GNxN5JQsmL7gbC9Z8ujaqL4J1xhiJFa5DTWW43hthQCY".parse::<Pubkey>().unwrap() @ ErrorCode::WrongToken)]
     #[account(mut, constraint = uris.to_account_info().owner == program_id)]
     pub uris: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
