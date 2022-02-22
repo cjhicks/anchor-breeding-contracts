@@ -451,16 +451,6 @@ pub struct Counter {
     pub count: u16
 }
 
-// #[account]
-// pub struct ATAData {
-//     pub owner: Pubkey
-// }
-
-// #[account]
-// pub struct ATA {
-//     pub data: ATAData
-// }
-
 fn get_timestamp() -> u64 {
     return Clock::get().unwrap().unix_timestamp as u64;
 }
