@@ -193,6 +193,19 @@ pub mod breeding_cooldown {
         Ok(())
     }
 
+    pub fn update_metadata(ctx: Context<UpdateMetadata>, creator_bump: u8) -> ProgramResult {
+        do_update_metadata(
+            &ctx.accounts.mutant_creator,
+            &[PREFIX_MUTANT, &[creator_bump]],
+            &ctx.accounts.mutant_mint,
+            &ctx.accounts.mutant_mint_metadata,
+            &ctx.accounts.token_metadata_program,
+            *ctx.accounts.new_update_authority.key,
+        )?;
+
+        Ok(())
+    }
+
     pub fn fast_react(ctx: Context<FastReact>, creator_bump: u8) -> ProgramResult {
         let token_program = &ctx.accounts.token_program;
         let user = &ctx.accounts.user;
@@ -366,6 +379,27 @@ pub struct React<'info> {
     // #[account(mut, constraint = uris.key() == "GNxN5JQsmL7gbC9Z8ujaqL4J1xhiJFa5DTWW43hthQCY".parse::<Pubkey>().unwrap() @ ErrorCode::WrongToken)]
     #[account(mut, constraint = uris.to_account_info().owner == program_id)]
     pub uris: AccountInfo<'info>,
+    pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(creator_bump: u8)]
+pub struct UpdateMetadata<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(mut)]
+    pub mutant_mint: AccountInfo<'info>,
+    #[account(mut, seeds = [PREFIX_MUTANT.as_ref()], bump=creator_bump)]
+    pub mutant_creator: AccountInfo<'info>,
+    #[account(mut)]
+    pub mutant_mint_metadata: AccountInfo<'info>,
+    #[account(mut)]
+    pub new_update_authority: AccountInfo<'info>,
+
+    #[account(executable, "token_program.key == &anchor_spl::token::ID")]
+    pub token_program: AccountInfo<'info>,  // this is the SPL Token Program which is owner of all token mints
+    pub token_metadata_program: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>, // this is just anchor.web3.SystemProgram.programId from frontend
     pub rent: Sysvar<'info, Rent>,
 }
@@ -661,6 +695,34 @@ pub fn mint_nft<'a>(
             *mint_metadata.key,
             *creator.key,
             None,
+            None,
+            Some(true),
+        ),
+        &[  
+            mint_metadata.to_account_info(),
+            creator.clone(),
+            token_metadata_program.to_account_info()
+        ],
+        &[creator_seeds]
+    )?;
+
+    Ok(())
+}
+
+pub fn do_update_metadata<'a>(
+    creator: &AccountInfo<'a>,
+    creator_seeds: &[&[u8]],
+    mint: &AccountInfo<'a>,
+    mint_metadata: &AccountInfo<'a>,
+    token_metadata_program: &AccountInfo<'a>,
+    new_update_authority: Pubkey
+) -> ProgramResult {
+    invoke_signed(
+        &update_metadata_accounts(
+            *token_metadata_program.key, 
+            *mint_metadata.key,
+            *creator.key,
+            Some(new_update_authority),
             None,
             Some(true),
         ),
