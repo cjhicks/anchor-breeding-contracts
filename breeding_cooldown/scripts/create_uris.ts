@@ -26,6 +26,7 @@ describe('breeding_cooldown', () => {
 
   const connection = anchor.getProvider().connection;
   const program = (<any>anchor).workspace.BreedingCooldown as Program<BreedingCooldown>;
+  console.log(program.programId)
 
   const wallet = anchor.getProvider().wallet;
   const userPubKey = wallet.publicKey;
@@ -34,34 +35,42 @@ describe('breeding_cooldown', () => {
   const urisKey = urisAccount.publicKey;
   console.log('URIs pubKey: ' + urisKey)
 
-  it('Initializes a vector of URIs',async () => {
-      await program.rpc.initUris({
-        accounts: {
-          user: userPubKey,
-          uris: urisKey,
-          systemProgram: SystemProgram.programId,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY
-        },
-        signers: [urisAccount],
-        preInstructions: [
-          await createUrisAccount(urisKey, NUM_URIS)
-        ]
-      })
-  })
+  // it('Initializes a vector of URIs',async () => {
+  //     await program.rpc.initUris({
+  //       accounts: {
+  //         user: userPubKey,
+  //         uris: urisKey,
+  //         systemProgram: SystemProgram.programId,
+  //         rent: anchor.web3.SYSVAR_RENT_PUBKEY
+  //       },
+  //       signers: [urisAccount],
+  //       preInstructions: [
+  //         await createUrisAccount(urisKey, NUM_URIS)
+  //       ]
+  //     })
+  // })
 
   it('Adds URIs to vector',async () => {
     // with 10k bytes, got to 248 strings. 50k bytes is too big
     // using Vec<u8> got same thing... can we compress bytes to an int?
-    for (let i = 0; i < NUM_URIS; i++) {
+    for (let i = 3306; i < NUM_URIS; i++) {
       console.log(i);
       let relativeUri = uris[i].replace('https://arweave.net/', '')
-      await program.rpc.addUri(i, relativeUri, {
-        accounts: {
-          user: userPubKey,
-          uris: urisKey,
-          systemProgram: SystemProgram.programId
+      var done = false;
+      while (!done) {
+        try {  
+          await program.rpc.addUri(i, relativeUri, {
+            accounts: {
+              user: userPubKey,
+              uris: new anchor.web3.PublicKey('EHrTT2X2rPBbaAzYdmvbTzhoFVQ4U3D39QMLRgrHg6uM'),
+              systemProgram: SystemProgram.programId
+            }
+          })
+          done = true
+        } catch (error) {
+          console.log(error)
         }
-      })
+      }
     }
 
     console.log('URIs pubKey: ' + urisKey);
@@ -71,28 +80,28 @@ const CONFIG_ARRAY_START: number = 8; // key
 const MAX_URI_LENGTH: number = 50;
 const CONFIG_LINE_SIZE: number = MAX_URI_LENGTH; // 4 + MAX_URI_LENGTH;
 
-async function createUrisAccount(
-  urisAccount: PublicKey,
-  itemsAvailable: number = 3333,
-) {
-  const size =
-    CONFIG_ARRAY_START +
-    4 +
-    itemsAvailable * CONFIG_LINE_SIZE +
-    8; // +
-    // 2 * (Math.floor(itemsAvailable / 8) + 1);
+// async function createUrisAccount(
+//   urisAccount: PublicKey,
+//   itemsAvailable: number = 3333,
+// ) {
+//   const size =
+//     CONFIG_ARRAY_START +
+//     4 +
+//     itemsAvailable * CONFIG_LINE_SIZE +
+//     8; // +
+//     // 2 * (Math.floor(itemsAvailable / 8) + 1);
 
-  return anchor.web3.SystemProgram.createAccount({
-    fromPubkey: userPubKey,
-    newAccountPubkey: urisAccount,
-    space: size,
-    lamports:
-      await program.provider.connection.getMinimumBalanceForRentExemption(
-        size,
-      ),
-    programId: program.programId,
-  });
-}
+//   return anchor.web3.SystemProgram.createAccount({
+//     fromPubkey: userPubKey,
+//     newAccountPubkey: urisAccount,
+//     space: size,
+//     lamports:
+//       await program.provider.connection.getMinimumBalanceForRentExemption(
+//         size,
+//       ),
+//     programId: program.programId,
+//   });
+// }
 
 });
 
